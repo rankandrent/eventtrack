@@ -5,7 +5,7 @@
 [build.environment]
   NEXT_PUBLIC_SUPABASE_URL = "https://ncsxlqpwiaixnsvjtlgc.supabase.co"
   NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jc3hscXB3aWFpeG5zdmp0bGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NDIyMTIsImV4cCI6MjA3NzMxODIxMn0.Ru8LJvYuVbzoPyqgedqo2aw4EBLRtha1F9DokFvHjaU"
+  NEXT_PUBLIC_APP_URL = "https://invite-event.netlify.app"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
