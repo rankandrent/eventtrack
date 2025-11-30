@@ -8,10 +8,11 @@ import { supabase, Event, Guest } from '@/lib/supabase'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { generateInvitationImage } from '@/components/InvitationCard'
 import { 
   ArrowLeft, Calendar, MapPin, Users, Send, QrCode, 
   CheckCircle2, Clock, Plus, Download, Upload, Trash2,
-  Phone, Mail, Eye, Search, RefreshCw
+  Phone, Mail, Eye, Search, RefreshCw, Image, Share2
 } from 'lucide-react'
 import { formatDate, formatTime, generateQRCode, formatPhone } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -29,6 +30,7 @@ export default function EventDetailPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddGuest, setShowAddGuest] = useState(false)
   const [sendingInvites, setSendingInvites] = useState(false)
+  const [generatingImage, setGeneratingImage] = useState<string | null>(null)
   const [newGuest, setNewGuest] = useState({ name: '', phone: '', email: '', plus_ones: '0' })
 
   const loadData = useCallback(async () => {
@@ -131,57 +133,187 @@ export default function EventDetailPage() {
     }
   }
 
-  async function sendWhatsAppInvite(guest: Guest) {
+  // Download invitation card with QR code
+  async function downloadInvitationCard(guest: Guest) {
+    if (!event) return
+    
+    setGeneratingImage(guest.id)
     try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+      const imageDataUrl = await generateInvitationImage(guest, event)
       
-      // Generate QR code image URL
-      const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`
+      const link = document.createElement('a')
+      link.download = `invitation-${guest.name.replace(/\s+/g, '-').toLowerCase()}.png`
+      link.href = imageDataUrl
+      link.click()
       
-      // Create WhatsApp message
-      const message = `🎉 *You're Invited!*
+      toast.success('Invitation card downloaded!')
+    } catch (error) {
+      console.error('Error generating invitation:', error)
+      toast.error('Failed to generate invitation card')
+    } finally {
+      setGeneratingImage(null)
+    }
+  }
+
+  // Send WhatsApp with QR code image
+  async function sendWhatsAppWithImage(guest: Guest) {
+    if (!event) return
+    
+    setGeneratingImage(guest.id)
+    try {
+      const imageDataUrl = await generateInvitationImage(guest, event)
+      
+      // Check if Web Share API is available (mobile devices)
+      if (navigator.share && navigator.canShare) {
+        // Convert data URL to blob
+        const response = await fetch(imageDataUrl)
+        const blob = await response.blob()
+        const file = new File([blob], `invitation-${guest.name}.png`, { type: 'image/png' })
+        
+        const shareData = {
+          title: `Invitation: ${event.name}`,
+          text: `🎉 You're invited to ${event.name}!\n\n📅 ${formatDate(event.event_date)}\n⏰ ${formatTime(event.event_date)}\n📍 ${event.venue}\n\nPlease show the QR code at the entrance.`,
+          files: [file]
+        }
+        
+        if (navigator.canShare(shareData)) {
+          await navigator.share(shareData)
+          
+          // Update invitation status
+          await supabase.from('guests').update({
+            invitation_sent: true,
+            invitation_sent_at: new Date().toISOString()
+          }).eq('id', guest.id)
+
+          await supabase.from('whatsapp_logs').insert({
+            guest_id: guest.id,
+            event_id: eventId,
+            message_type: 'invitation',
+            status: 'sent',
+            sent_at: new Date().toISOString()
+          })
+
+          toast.success('Invitation shared!')
+          loadData()
+        } else {
+          // Fallback to download + WhatsApp text
+          await fallbackWhatsAppSend(guest, imageDataUrl)
+        }
+      } else {
+        // Desktop fallback - download image and open WhatsApp
+        await fallbackWhatsAppSend(guest, imageDataUrl)
+      }
+    } catch (error) {
+      console.error('Error sending invitation:', error)
+      // If share was cancelled, still offer fallback
+      if ((error as Error).name !== 'AbortError') {
+        toast.error('Failed to send invitation')
+      }
+    } finally {
+      setGeneratingImage(null)
+    }
+  }
+
+  // Fallback for desktop - download image and open WhatsApp with text
+  async function fallbackWhatsAppSend(guest: Guest, imageDataUrl: string) {
+    if (!event) return
+
+    // Download the image first
+    const link = document.createElement('a')
+    link.download = `invitation-${guest.name.replace(/\s+/g, '-').toLowerCase()}.png`
+    link.href = imageDataUrl
+    link.click()
+
+    // Small delay to ensure download starts
+    await new Promise(r => setTimeout(r, 500))
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+    const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`
+
+    // Create WhatsApp message
+    const message = `🎉 *You're Invited!*
 
 Dear ${guest.name},
 
-You are cordially invited to *${event?.name}*
+You are cordially invited to *${event.name}*
 
-📅 *Date:* ${formatDate(event?.event_date || '')}
-⏰ *Time:* ${formatTime(event?.event_date || '')}
-📍 *Venue:* ${event?.venue}
-${event?.venue_address ? `\n📌 *Address:* ${event.venue_address}` : ''}
+📅 *Date:* ${formatDate(event.event_date)}
+⏰ *Time:* ${formatTime(event.event_date)}
+📍 *Venue:* ${event.venue}
+${event.venue_address ? `\n📌 *Address:* ${event.venue_address}` : ''}
 
-Your personal check-in link:
+📱 *Your check-in link:*
+${checkInUrl}
+
+👆 *Please attach the downloaded invitation image to this message!*
+
+${event.host_name ? `\nLooking forward to seeing you!\n— ${event.host_name}` : ''}`.trim()
+
+    // Open WhatsApp with pre-filled message
+    const whatsappUrl = `https://wa.me/${guest.phone}?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, '_blank')
+
+    // Update invitation status
+    await supabase.from('guests').update({
+      invitation_sent: true,
+      invitation_sent_at: new Date().toISOString()
+    }).eq('id', guest.id)
+
+    await supabase.from('whatsapp_logs').insert({
+      guest_id: guest.id,
+      event_id: eventId,
+      message_type: 'invitation',
+      status: 'sent',
+      sent_at: new Date().toISOString()
+    })
+
+    toast.success('Image downloaded! Attach it to WhatsApp message', { duration: 5000 })
+    loadData()
+  }
+
+  // Simple text-only WhatsApp (no image)
+  async function sendWhatsAppText(guest: Guest) {
+    if (!event) return
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+    const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`
+    
+    const message = `🎉 *You're Invited!*
+
+Dear ${guest.name},
+
+You are cordially invited to *${event.name}*
+
+📅 *Date:* ${formatDate(event.event_date)}
+⏰ *Time:* ${formatTime(event.event_date)}
+📍 *Venue:* ${event.venue}
+${event.venue_address ? `\n📌 *Address:* ${event.venue_address}` : ''}
+
+📱 *Your personal check-in link:*
 ${checkInUrl}
 
 Please show your QR code at the entrance for quick check-in.
 
-${event?.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : ''}`.trim()
+${event.host_name ? `\nLooking forward to seeing you!\n— ${event.host_name}` : ''}`.trim()
 
-      // Open WhatsApp with pre-filled message
-      const whatsappUrl = `https://wa.me/${guest.phone}?text=${encodeURIComponent(message)}`
-      window.open(whatsappUrl, '_blank')
+    const whatsappUrl = `https://wa.me/${guest.phone}?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, '_blank')
 
-      // Update invitation status
-      await supabase.from('guests').update({
-        invitation_sent: true,
-        invitation_sent_at: new Date().toISOString()
-      }).eq('id', guest.id)
+    await supabase.from('guests').update({
+      invitation_sent: true,
+      invitation_sent_at: new Date().toISOString()
+    }).eq('id', guest.id)
 
-      // Log the message
-      await supabase.from('whatsapp_logs').insert({
-        guest_id: guest.id,
-        event_id: eventId,
-        message_type: 'invitation',
-        status: 'sent',
-        sent_at: new Date().toISOString()
-      })
+    await supabase.from('whatsapp_logs').insert({
+      guest_id: guest.id,
+      event_id: eventId,
+      message_type: 'invitation',
+      status: 'sent',
+      sent_at: new Date().toISOString()
+    })
 
-      toast.success(`Opening WhatsApp for ${guest.name}`)
-      loadData()
-    } catch (error) {
-      console.error('Error sending invite:', error)
-      toast.error('Failed to send invitation')
-    }
+    toast.success(`Opening WhatsApp for ${guest.name}`)
+    loadData()
   }
 
   async function sendAllInvites() {
@@ -194,8 +326,8 @@ ${event?.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : 
     setSendingInvites(true)
     
     for (const guest of uninvited) {
-      await sendWhatsAppInvite(guest)
-      await new Promise(r => setTimeout(r, 1000)) // Delay between messages
+      await sendWhatsAppWithImage(guest)
+      await new Promise(r => setTimeout(r, 1500))
     }
 
     setSendingInvites(false)
@@ -346,7 +478,7 @@ ${event?.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-lg md:text-xl">Guest List</CardTitle>
-              <CardDescription className="text-xs md:text-sm">Manage guests and send invitations</CardDescription>
+              <CardDescription className="text-xs md:text-sm">Manage guests and send invitations with QR codes</CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <label className="cursor-pointer">
@@ -486,18 +618,45 @@ ${event?.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : 
                     
                     {/* Actions */}
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => downloadQRCode(guest)} className="p-2">
-                        <QrCode className="w-4 h-4" />
-                      </Button>
+                      {/* Download invitation card */}
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => sendWhatsAppInvite(guest)}
-                        disabled={guest.invitation_sent}
+                        onClick={() => downloadInvitationCard(guest)} 
                         className="p-2"
+                        title="Download Invitation Card"
+                        disabled={generatingImage === guest.id}
+                      >
+                        {generatingImage === guest.id ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Image className="w-4 h-4" />
+                        )}
+                      </Button>
+                      
+                      {/* Send WhatsApp with image */}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => sendWhatsAppWithImage(guest)}
+                        className="p-2 text-green-400 hover:text-green-300"
+                        title="Send WhatsApp with QR Image"
+                        disabled={generatingImage === guest.id}
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </Button>
+                      
+                      {/* Send text only */}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => sendWhatsAppText(guest)}
+                        className="p-2"
+                        title="Send WhatsApp Text Only"
                       >
                         <Send className="w-4 h-4" />
                       </Button>
+                      
                       <Button 
                         variant="ghost" 
                         size="sm" 
