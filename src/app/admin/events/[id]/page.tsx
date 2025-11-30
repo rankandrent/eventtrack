@@ -540,7 +540,7 @@ ${event.host_name ? `\nLooking forward to seeing you!\n— ${event.host_name}` :
                   className="text-sm"
                 />
                 <Input
-                  placeholder="Phone Number *"
+                  placeholder="Phone with country code (e.g. 14155551234)"
                   value={newGuest.phone}
                   onChange={(e) => setNewGuest({ ...newGuest, phone: e.target.value })}
                   className="text-sm"

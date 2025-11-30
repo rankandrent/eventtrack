@@ -16,12 +16,16 @@ export function generateQRCode(): string {
 }
 
 export function formatPhone(phone: string): string {
-  // Remove all non-digits
-  const digits = phone.replace(/\D/g, '')
-  // Add country code if missing
-  if (digits.startsWith('92')) return digits
-  if (digits.startsWith('0')) return '92' + digits.slice(1)
-  return '92' + digits
+  // Remove all characters except digits and +
+  let cleaned = phone.replace(/[^\d+]/g, '')
+  
+  // If starts with +, keep it and get just digits after
+  if (cleaned.startsWith('+')) {
+    return cleaned.replace(/[^\d]/g, '') // Remove + for WhatsApp API format
+  }
+  
+  // If it's just digits, return as-is (user should include country code)
+  return cleaned
 }
 
 export function formatDate(date: string | Date): string {
@@ -46,4 +50,3 @@ export function formatTime(date: string | Date): string {
 export function formatDateTime(date: string | Date): string {
   return `${formatDate(date)} at ${formatTime(date)}`
 }
-

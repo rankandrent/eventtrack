@@ -186,7 +186,7 @@ export default function NewEventPage() {
                 <input
                   type="tel"
                   className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-gold-500/50 focus:ring-2 focus:ring-gold-500/20 transition-all"
-                  placeholder="+92 300 1234567"
+                  placeholder="e.g. +1 415 555 1234"
                   value={form.host_phone}
                   onChange={(e) => setForm({ ...form, host_phone: e.target.value })}
                 />
