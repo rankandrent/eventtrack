@@ -289,28 +289,32 @@ ${event?.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : 
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 md:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3 md:gap-4">
           <Link href="/admin/events">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="mt-1">
               <ArrowLeft className="w-4 h-4" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl font-display font-bold text-white">{event.name}</h1>
-            <p className="text-gray-400 text-sm flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              {formatDate(event.event_date)} at {formatTime(event.event_date)}
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-2xl font-display font-bold text-white truncate">{event.name}</h1>
+            <p className="text-gray-400 text-xs md:text-sm flex flex-wrap items-center gap-1 md:gap-2">
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3 h-3 md:w-4 md:h-4" />
+                {formatDate(event.event_date)}
+              </span>
               <span className="text-gray-600">•</span>
-              <MapPin className="w-4 h-4" />
-              {event.venue}
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3 md:w-4 md:h-4" />
+                {event.venue}
+              </span>
             </p>
           </div>
         </div>
-        <Link href={`/checkin?event=${event.id}`}>
-          <Button variant="secondary">
+        <Link href={`/checkin?event=${event.id}`} className="w-full sm:w-auto">
+          <Button variant="secondary" className="w-full sm:w-auto">
             <QrCode className="w-4 h-4" />
             Open Scanner
           </Button>
@@ -318,18 +322,18 @@ ${event?.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : 
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
         {[
-          { label: 'Total Guests', value: stats.total, icon: Users, color: 'text-blue-400' },
-          { label: 'Invites Sent', value: stats.invited, icon: Send, color: 'text-gold-400' },
+          { label: 'Total', value: stats.total, icon: Users, color: 'text-blue-400' },
+          { label: 'Invited', value: stats.invited, icon: Send, color: 'text-gold-400' },
           { label: 'Checked In', value: stats.checkedIn, icon: CheckCircle2, color: 'text-green-400' },
         ].map((stat) => (
-          <Card key={stat.label}>
-            <CardContent className="flex items-center gap-3">
-              <stat.icon className={`w-8 h-8 ${stat.color}`} />
+          <Card key={stat.label} className="p-3 md:p-6">
+            <CardContent className="flex flex-col md:flex-row items-center gap-1 md:gap-3 p-0 text-center md:text-left">
+              <stat.icon className={`w-5 h-5 md:w-8 md:h-8 ${stat.color}`} />
               <div>
-                <p className="text-2xl font-bold text-white">{stat.value}</p>
-                <p className="text-sm text-gray-400">{stat.label}</p>
+                <p className="text-lg md:text-2xl font-bold text-white">{stat.value}</p>
+                <p className="text-[10px] md:text-sm text-gray-400">{stat.label}</p>
               </div>
             </CardContent>
           </Card>
@@ -338,38 +342,40 @@ ${event?.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : 
 
       {/* Guest Management */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Guest List</CardTitle>
-            <CardDescription>Manage guests and send invitations</CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="cursor-pointer">
-              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelUpload} />
-              <span className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all cursor-pointer">
-                <Upload className="w-4 h-4" />
-                Import Excel
-              </span>
-            </label>
-            <Button variant="secondary" size="sm" onClick={exportGuestList}>
-              <Download className="w-4 h-4" />
-              Export
-            </Button>
-            <Button onClick={() => setShowAddGuest(true)}>
-              <Plus className="w-4 h-4" />
-              Add Guest
-            </Button>
+        <CardHeader className="space-y-3 md:space-y-0">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-lg md:text-xl">Guest List</CardTitle>
+              <CardDescription className="text-xs md:text-sm">Manage guests and send invitations</CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="cursor-pointer">
+                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelUpload} />
+                <span className="inline-flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-xs md:text-sm font-medium rounded-lg md:rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all cursor-pointer">
+                  <Upload className="w-3 h-3 md:w-4 md:h-4" />
+                  <span className="hidden sm:inline">Import</span>
+                </span>
+              </label>
+              <Button variant="secondary" size="sm" onClick={exportGuestList} className="text-xs md:text-sm">
+                <Download className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Export</span>
+              </Button>
+              <Button onClick={() => setShowAddGuest(true)} size="sm" className="text-xs md:text-sm">
+                <Plus className="w-3 h-3 md:w-4 md:h-4" />
+                Add
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Search & Actions */}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
                 type="text"
                 placeholder="Search guests..."
-                className="w-full pl-10 pr-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-gold-500/50 focus:outline-none"
+                className="w-full pl-10 pr-4 py-2 text-sm rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-gold-500/50 focus:outline-none"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -379,9 +385,10 @@ ${event?.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : 
               onClick={sendAllInvites}
               loading={sendingInvites}
               disabled={stats.invited === stats.total}
+              className="text-xs md:text-sm whitespace-nowrap"
             >
-              <Send className="w-4 h-4" />
-              Send All Invites ({stats.total - stats.invited})
+              <Send className="w-3 h-3 md:w-4 md:h-4" />
+              Send All ({stats.total - stats.invited})
             </Button>
           </div>
 
@@ -390,45 +397,49 @@ ${event?.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : 
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
-              className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-4"
+              className="p-3 md:p-4 rounded-xl bg-white/5 border border-white/10 space-y-3 md:space-y-4"
             >
-              <h4 className="font-medium text-white">Add New Guest</h4>
-              <div className="grid grid-cols-2 gap-4">
+              <h4 className="font-medium text-white text-sm md:text-base">Add New Guest</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
                   placeholder="Name *"
                   value={newGuest.name}
                   onChange={(e) => setNewGuest({ ...newGuest, name: e.target.value })}
+                  className="text-sm"
                 />
                 <Input
                   placeholder="Phone Number *"
                   value={newGuest.phone}
                   onChange={(e) => setNewGuest({ ...newGuest, phone: e.target.value })}
+                  className="text-sm"
                 />
                 <Input
                   placeholder="Email (optional)"
                   type="email"
                   value={newGuest.email}
                   onChange={(e) => setNewGuest({ ...newGuest, email: e.target.value })}
+                  className="text-sm"
                 />
                 <Input
                   placeholder="Plus Ones"
                   type="number"
                   value={newGuest.plus_ones}
                   onChange={(e) => setNewGuest({ ...newGuest, plus_ones: e.target.value })}
+                  className="text-sm"
                 />
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setShowAddGuest(false)}>Cancel</Button>
-                <Button onClick={addGuest}>Add Guest</Button>
+                <Button variant="ghost" size="sm" onClick={() => setShowAddGuest(false)}>Cancel</Button>
+                <Button size="sm" onClick={addGuest}>Add Guest</Button>
               </div>
             </motion.div>
           )}
 
           {/* Guest List */}
           {filteredGuests.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">
+            <div className="text-center py-8 md:py-12">
+              <Users className="w-10 h-10 md:w-12 md:h-12 text-gray-600 mx-auto mb-3 md:mb-4" />
+              <p className="text-gray-400 text-sm md:text-base">
                 {searchTerm ? 'No guests found' : 'No guests added yet'}
               </p>
             </div>
@@ -439,64 +450,63 @@ ${event?.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : 
                   key={guest.id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-all"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 md:p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-all"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm md:text-base ${
                       guest.checked_in ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
                     }`}>
-                      {guest.checked_in ? <CheckCircle2 className="w-5 h-5" /> : guest.name.charAt(0).toUpperCase()}
+                      {guest.checked_in ? <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5" /> : guest.name.charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                      <p className="font-medium text-white">{guest.name}</p>
-                      <p className="text-sm text-gray-400 flex items-center gap-3">
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-white text-sm md:text-base truncate">{guest.name}</p>
+                      <p className="text-xs md:text-sm text-gray-400 flex items-center gap-2 md:gap-3">
+                        <span className="flex items-center gap-1 truncate">
+                          <Phone className="w-3 h-3 flex-shrink-0" />
                           {guest.phone}
                         </span>
-                        {guest.email && (
-                          <span className="flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {guest.email}
-                          </span>
-                        )}
                       </p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 justify-between sm:justify-end">
                     {/* Status badges */}
-                    {guest.invitation_sent && (
-                      <span className="px-2 py-1 rounded-full bg-gold-500/20 text-gold-400 text-xs">
-                        Invited
-                      </span>
-                    )}
-                    {guest.checked_in && (
-                      <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 text-xs">
-                        Checked In
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {guest.invitation_sent && (
+                        <span className="px-2 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-[10px] md:text-xs">
+                          Invited
+                        </span>
+                      )}
+                      {guest.checked_in && (
+                        <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[10px] md:text-xs">
+                          Checked In
+                        </span>
+                      )}
+                    </div>
                     
                     {/* Actions */}
-                    <Button variant="ghost" size="sm" onClick={() => downloadQRCode(guest)}>
-                      <QrCode className="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => sendWhatsAppInvite(guest)}
-                      disabled={guest.invitation_sent}
-                    >
-                      <Send className="w-4 h-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => deleteGuest(guest.id)}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => downloadQRCode(guest)} className="p-2">
+                        <QrCode className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => sendWhatsAppInvite(guest)}
+                        disabled={guest.invitation_sent}
+                        className="p-2"
+                      >
+                        <Send className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => deleteGuest(guest.id)}
+                        className="text-red-400 hover:text-red-300 p-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -507,4 +517,3 @@ ${event?.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : 
     </div>
   )
 }
-
