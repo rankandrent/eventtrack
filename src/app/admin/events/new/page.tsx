@@ -1,18 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { ArrowLeft, Calendar, MapPin, User, Phone, Image } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, User, Phone } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 
 export default function NewEventPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -25,11 +26,26 @@ export default function NewEventPage() {
     max_guests: '',
   })
 
+  useEffect(() => {
+    async function getUser() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        setUserId(session.user.id)
+      }
+    }
+    getUser()
+  }, [])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     
     if (!form.name || !form.event_date || !form.event_time || !form.venue) {
       toast.error('Please fill in all required fields')
+      return
+    }
+
+    if (!userId) {
+      toast.error('Please login to create an event')
       return
     }
 
@@ -41,6 +57,7 @@ export default function NewEventPage() {
       const { data, error } = await supabase
         .from('events')
         .insert({
+          user_id: userId,
           name: form.name,
           description: form.description || null,
           event_date: eventDateTime.toISOString(),
@@ -217,4 +234,3 @@ export default function NewEventPage() {
     </div>
   )
 }
-
