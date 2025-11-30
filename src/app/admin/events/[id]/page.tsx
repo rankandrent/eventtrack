@@ -11,8 +11,8 @@ import { Input } from '@/components/ui/Input'
 import { generateInvitationImage } from '@/components/InvitationCard'
 import { 
   ArrowLeft, Calendar, MapPin, Users, Send, QrCode, 
-  CheckCircle2, Clock, Plus, Download, Upload, Trash2,
-  Phone, Mail, Eye, Search, RefreshCw, Image, Share2
+  CheckCircle2, Plus, Download, Upload, Trash2,
+  Phone, Search, RefreshCw, Image, Share2, Copy, Shield, Link as LinkIcon
 } from 'lucide-react'
 import { formatDate, formatTime, generateQRCode, formatPhone } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -54,7 +54,6 @@ export default function EventDetailPage() {
   useEffect(() => {
     loadData()
 
-    // Set up real-time subscription for guests
     const channel = supabase
       .channel('guests-changes')
       .on('postgres_changes', 
@@ -112,27 +111,6 @@ export default function EventDetailPage() {
     }
   }
 
-  async function downloadQRCode(guest: Guest) {
-    try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-      const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`
-      
-      const qrDataUrl = await QRCode.toDataURL(checkInUrl, {
-        width: 400,
-        margin: 2,
-        color: { dark: '#0d1f38', light: '#ffffff' }
-      })
-
-      const link = document.createElement('a')
-      link.download = `qr-${guest.name.replace(/\s+/g, '-').toLowerCase()}.png`
-      link.href = qrDataUrl
-      link.click()
-    } catch (error) {
-      console.error('Error generating QR:', error)
-      toast.error('Failed to generate QR code')
-    }
-  }
-
   // Download invitation card with QR code
   async function downloadInvitationCard(guest: Guest) {
     if (!event) return
@@ -155,101 +133,23 @@ export default function EventDetailPage() {
     }
   }
 
-  // Send WhatsApp with QR code image
-  async function sendWhatsAppWithImage(guest: Guest) {
+  // Send WhatsApp with invitation link (not text)
+  async function sendWhatsAppInvite(guest: Guest) {
     if (!event) return
     
-    setGeneratingImage(guest.id)
-    try {
-      const imageDataUrl = await generateInvitationImage(guest, event)
-      
-      // Check if Web Share API is available (mobile devices)
-      if (navigator.share && navigator.canShare) {
-        // Convert data URL to blob
-        const response = await fetch(imageDataUrl)
-        const blob = await response.blob()
-        const file = new File([blob], `invitation-${guest.name}.png`, { type: 'image/png' })
-        
-        const shareData = {
-          title: `Invitation: ${event.name}`,
-          text: `🎉 You're invited to ${event.name}!\n\n📅 ${formatDate(event.event_date)}\n⏰ ${formatTime(event.event_date)}\n📍 ${event.venue}\n\nPlease show the QR code at the entrance.`,
-          files: [file]
-        }
-        
-        if (navigator.canShare(shareData)) {
-          await navigator.share(shareData)
-          
-          // Update invitation status
-          await supabase.from('guests').update({
-            invitation_sent: true,
-            invitation_sent_at: new Date().toISOString()
-          }).eq('id', guest.id)
-
-          await supabase.from('whatsapp_logs').insert({
-            guest_id: guest.id,
-            event_id: eventId,
-            message_type: 'invitation',
-            status: 'sent',
-            sent_at: new Date().toISOString()
-          })
-
-          toast.success('Invitation shared!')
-          loadData()
-        } else {
-          // Fallback to download + WhatsApp text
-          await fallbackWhatsAppSend(guest, imageDataUrl)
-        }
-      } else {
-        // Desktop fallback - download image and open WhatsApp
-        await fallbackWhatsAppSend(guest, imageDataUrl)
-      }
-    } catch (error) {
-      console.error('Error sending invitation:', error)
-      // If share was cancelled, still offer fallback
-      if ((error as Error).name !== 'AbortError') {
-        toast.error('Failed to send invitation')
-      }
-    } finally {
-      setGeneratingImage(null)
-    }
-  }
-
-  // Fallback for desktop - download image and open WhatsApp with text
-  async function fallbackWhatsAppSend(guest: Guest, imageDataUrl: string) {
-    if (!event) return
-
-    // Download the image first
-    const link = document.createElement('a')
-    link.download = `invitation-${guest.name.replace(/\s+/g, '-').toLowerCase()}.png`
-    link.href = imageDataUrl
-    link.click()
-
-    // Small delay to ensure download starts
-    await new Promise(r => setTimeout(r, 500))
-
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-    const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`
+    const invitationUrl = `${appUrl}/invitation/${guest.qr_code}`
 
-    // Create WhatsApp message
-    const message = `🎉 *You're Invited!*
+    // Simple message with just the link
+    const message = `🎉 *${event.name}*
 
-Dear ${guest.name},
+Dear ${guest.name}, you're invited!
 
-You are cordially invited to *${event.name}*
+📥 *View & Download Your Invitation:*
+${invitationUrl}
 
-📅 *Date:* ${formatDate(event.event_date)}
-⏰ *Time:* ${formatTime(event.event_date)}
-📍 *Venue:* ${event.venue}
-${event.venue_address ? `\n📌 *Address:* ${event.venue_address}` : ''}
+Click the link above to see event details and download your QR code.`
 
-📱 *Your check-in link:*
-${checkInUrl}
-
-👆 *Please attach the downloaded invitation image to this message!*
-
-${event.host_name ? `\nLooking forward to seeing you!\n— ${event.host_name}` : ''}`.trim()
-
-    // Open WhatsApp with pre-filled message
     const whatsappUrl = `https://wa.me/${guest.phone}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
 
@@ -267,53 +167,55 @@ ${event.host_name ? `\nLooking forward to seeing you!\n— ${event.host_name}` :
       sent_at: new Date().toISOString()
     })
 
-    toast.success('Image downloaded! Attach it to WhatsApp message', { duration: 5000 })
+    toast.success(`Invitation link sent to ${guest.name}`)
     loadData()
   }
 
-  // Simple text-only WhatsApp (no image)
-  async function sendWhatsAppText(guest: Guest) {
+  // Share invitation with image (mobile)
+  async function shareWithImage(guest: Guest) {
     if (!event) return
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-    const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`
     
-    const message = `🎉 *You're Invited!*
+    setGeneratingImage(guest.id)
+    try {
+      const imageDataUrl = await generateInvitationImage(guest, event)
+      
+      if (navigator.share && navigator.canShare) {
+        const response = await fetch(imageDataUrl)
+        const blob = await response.blob()
+        const file = new File([blob], `invitation-${guest.name}.png`, { type: 'image/png' })
+        
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+        const invitationUrl = `${appUrl}/invitation/${guest.qr_code}`
+        
+        const shareData = {
+          title: `Invitation: ${event.name}`,
+          text: `You're invited to ${event.name}!\n\nDownload link: ${invitationUrl}`,
+          files: [file]
+        }
+        
+        if (navigator.canShare(shareData)) {
+          await navigator.share(shareData)
+          
+          await supabase.from('guests').update({
+            invitation_sent: true,
+            invitation_sent_at: new Date().toISOString()
+          }).eq('id', guest.id)
 
-Dear ${guest.name},
-
-You are cordially invited to *${event.name}*
-
-📅 *Date:* ${formatDate(event.event_date)}
-⏰ *Time:* ${formatTime(event.event_date)}
-📍 *Venue:* ${event.venue}
-${event.venue_address ? `\n📌 *Address:* ${event.venue_address}` : ''}
-
-📱 *Your personal check-in link:*
-${checkInUrl}
-
-Please show your QR code at the entrance for quick check-in.
-
-${event.host_name ? `\nLooking forward to seeing you!\n— ${event.host_name}` : ''}`.trim()
-
-    const whatsappUrl = `https://wa.me/${guest.phone}?text=${encodeURIComponent(message)}`
-    window.open(whatsappUrl, '_blank')
-
-    await supabase.from('guests').update({
-      invitation_sent: true,
-      invitation_sent_at: new Date().toISOString()
-    }).eq('id', guest.id)
-
-    await supabase.from('whatsapp_logs').insert({
-      guest_id: guest.id,
-      event_id: eventId,
-      message_type: 'invitation',
-      status: 'sent',
-      sent_at: new Date().toISOString()
-    })
-
-    toast.success(`Opening WhatsApp for ${guest.name}`)
-    loadData()
+          toast.success('Invitation shared!')
+          loadData()
+        }
+      } else {
+        // Desktop - download and open WhatsApp
+        downloadInvitationCard(guest)
+        setTimeout(() => sendWhatsAppInvite(guest), 500)
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        toast.error('Failed to share')
+      }
+    } finally {
+      setGeneratingImage(null)
+    }
   }
 
   async function sendAllInvites() {
@@ -326,12 +228,20 @@ ${event.host_name ? `\nLooking forward to seeing you!\n— ${event.host_name}` :
     setSendingInvites(true)
     
     for (const guest of uninvited) {
-      await sendWhatsAppWithImage(guest)
-      await new Promise(r => setTimeout(r, 1500))
+      await sendWhatsAppInvite(guest)
+      await new Promise(r => setTimeout(r, 1000))
     }
 
     setSendingInvites(false)
     toast.success(`Sent ${uninvited.length} invitations`)
+  }
+
+  // Copy scanner link for gate staff
+  function copyScannerLink() {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+    const scannerUrl = `${appUrl}/scanner/${eventId}`
+    navigator.clipboard.writeText(scannerUrl)
+    toast.success('Scanner link copied! Share with gate staff')
   }
 
   async function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -445,12 +355,20 @@ ${event.host_name ? `\nLooking forward to seeing you!\n— ${event.host_name}` :
             </p>
           </div>
         </div>
-        <Link href={`/checkin?event=${event.id}`} className="w-full sm:w-auto">
-          <Button variant="secondary" className="w-full sm:w-auto">
-            <QrCode className="w-4 h-4" />
-            Open Scanner
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={copyScannerLink} className="text-xs md:text-sm">
+            <Shield className="w-4 h-4" />
+            <span className="hidden sm:inline">Copy Scanner Link</span>
+            <span className="sm:hidden">Scanner</span>
           </Button>
-        </Link>
+          <Link href={`/scanner/${event.id}`}>
+            <Button className="text-xs md:text-sm">
+              <QrCode className="w-4 h-4" />
+              <span className="hidden sm:inline">Open Scanner</span>
+              <span className="sm:hidden">Scan</span>
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}
@@ -478,7 +396,7 @@ ${event.host_name ? `\nLooking forward to seeing you!\n— ${event.host_name}` :
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-lg md:text-xl">Guest List</CardTitle>
-              <CardDescription className="text-xs md:text-sm">Manage guests and send invitations with QR codes</CardDescription>
+              <CardDescription className="text-xs md:text-sm">Send invitation links with QR codes</CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <label className="cursor-pointer">
@@ -634,27 +552,27 @@ ${event.host_name ? `\nLooking forward to seeing you!\n— ${event.host_name}` :
                         )}
                       </Button>
                       
-                      {/* Send WhatsApp with image */}
+                      {/* Share with image (mobile) */}
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => sendWhatsAppWithImage(guest)}
+                        onClick={() => shareWithImage(guest)}
                         className="p-2 text-green-400 hover:text-green-300"
-                        title="Send WhatsApp with QR Image"
+                        title="Share with QR Image"
                         disabled={generatingImage === guest.id}
                       >
                         <Share2 className="w-4 h-4" />
                       </Button>
                       
-                      {/* Send text only */}
+                      {/* Send invitation link */}
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => sendWhatsAppText(guest)}
+                        onClick={() => sendWhatsAppInvite(guest)}
                         className="p-2"
-                        title="Send WhatsApp Text Only"
+                        title="Send Invitation Link via WhatsApp"
                       >
-                        <Send className="w-4 h-4" />
+                        <LinkIcon className="w-4 h-4" />
                       </Button>
                       
                       <Button 

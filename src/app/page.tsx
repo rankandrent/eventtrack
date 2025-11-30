@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { QrCode, Send, Users, CheckCircle2, Sparkles, Calendar, Shield, Zap, Menu, X } from 'lucide-react'
+import { QrCode, Send, Users, CheckCircle2, Sparkles, Calendar, Shield, Zap, Menu, X, LogIn, UserPlus } from 'lucide-react'
 import { useState } from 'react'
 
 export default function Home() {
@@ -27,12 +27,20 @@ export default function Home() {
           </div>
           
           {/* Desktop Menu */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3">
             <Link 
-              href="/admin" 
-              className="px-6 py-2.5 rounded-full bg-gradient-to-r from-gold-500 to-gold-600 text-midnight-950 font-medium hover:from-gold-400 hover:to-gold-500 transition-all shadow-lg shadow-gold-500/25"
+              href="/auth/login" 
+              className="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-all flex items-center gap-2"
             >
-              Admin Dashboard
+              <LogIn className="w-4 h-4" />
+              Login
+            </Link>
+            <Link 
+              href="/auth/signup" 
+              className="px-5 py-2.5 rounded-full bg-gradient-to-r from-gold-500 to-gold-600 text-midnight-950 font-medium hover:from-gold-400 hover:to-gold-500 transition-all shadow-lg shadow-gold-500/25 flex items-center gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              Sign Up Free
             </Link>
           </div>
 
@@ -54,18 +62,20 @@ export default function Home() {
           >
             <div className="flex flex-col gap-3">
               <Link 
-                href="/admin" 
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 text-midnight-950 font-medium text-center"
+                href="/auth/login" 
+                className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white font-medium text-center flex items-center justify-center gap-2"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Admin Dashboard
+                <LogIn className="w-4 h-4" />
+                Login
               </Link>
               <Link 
-                href="/checkin" 
-                className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white font-medium text-center"
+                href="/auth/signup" 
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 text-midnight-950 font-medium text-center flex items-center justify-center gap-2"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Scan QR Code
+                <UserPlus className="w-4 h-4" />
+                Sign Up Free
               </Link>
             </div>
           </motion.div>
@@ -111,18 +121,18 @@ export default function Home() {
             className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 px-4"
           >
             <Link 
-              href="/admin/events/new"
+              href="/auth/signup"
               className="w-full sm:w-auto px-6 md:px-8 py-3 md:py-4 rounded-full bg-gradient-to-r from-gold-500 to-gold-600 text-midnight-950 font-semibold text-base md:text-lg hover:from-gold-400 hover:to-gold-500 transition-all shadow-xl shadow-gold-500/30 flex items-center justify-center gap-2"
             >
-              <Calendar className="w-4 h-4 md:w-5 md:h-5" />
-              Create Event
+              <UserPlus className="w-4 h-4 md:w-5 md:h-5" />
+              Get Started Free
             </Link>
             <Link 
-              href="/checkin"
+              href="/auth/login"
               className="w-full sm:w-auto px-6 md:px-8 py-3 md:py-4 rounded-full bg-white/5 border border-white/10 text-white font-semibold text-base md:text-lg hover:bg-white/10 transition-all flex items-center justify-center gap-2"
             >
-              <QrCode className="w-4 h-4 md:w-5 md:h-5" />
-              Scan QR Code
+              <LogIn className="w-4 h-4 md:w-5 md:h-5" />
+              Login to Dashboard
             </Link>
           </motion.div>
         </div>
@@ -144,7 +154,7 @@ export default function Home() {
             {
               icon: Send,
               title: 'WhatsApp Invites',
-              description: 'Send personalized invitations directly to guests via WhatsApp',
+              description: 'Send personalized invitations with QR code directly via WhatsApp',
               delay: 0,
             },
             {
@@ -184,6 +194,41 @@ export default function Home() {
         </div>
       </section>
 
+      {/* How It Works */}
+      <section className="px-4 md:px-8 py-16 md:py-24 max-w-7xl mx-auto">
+        <div className="text-center mb-10 md:mb-16">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold gold-text mb-3 md:mb-4">
+            How It Works
+          </h2>
+          <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base px-4">
+            Get started in 3 simple steps
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+          {[
+            { step: '1', title: 'Create Event', description: 'Sign up and create your event with all the details' },
+            { step: '2', title: 'Add Guests', description: 'Add guests manually or import from Excel. Each gets a unique QR code' },
+            { step: '3', title: 'Send & Scan', description: 'Send invitations via WhatsApp and scan QR codes at the venue' },
+          ].map((item, index) => (
+            <motion.div
+              key={item.step}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              viewport={{ once: true }}
+              className="text-center"
+            >
+              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-gold-500 to-gold-600 rounded-2xl flex items-center justify-center text-2xl font-bold text-midnight-950">
+                {item.step}
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">{item.title}</h3>
+              <p className="text-gray-400 text-sm">{item.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
       {/* Stats Section */}
       <section className="px-4 md:px-8 py-12 md:py-16 max-w-7xl mx-auto">
         <div className="glass-card rounded-2xl md:rounded-3xl p-6 md:p-12 text-center">
@@ -207,6 +252,30 @@ export default function Home() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="px-4 md:px-8 py-16 md:py-24 max-w-3xl mx-auto text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+        >
+          <h2 className="text-2xl md:text-4xl font-display font-bold text-white mb-4">
+            Ready to Get Started?
+          </h2>
+          <p className="text-gray-400 mb-8">
+            Create your first event and start sending beautiful invitations today
+          </p>
+          <Link 
+            href="/auth/signup"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-gold-500 to-gold-600 text-midnight-950 font-semibold text-lg hover:from-gold-400 hover:to-gold-500 transition-all shadow-xl shadow-gold-500/30"
+          >
+            <UserPlus className="w-5 h-5" />
+            Sign Up Free
+          </Link>
+        </motion.div>
       </section>
 
       {/* Footer */}

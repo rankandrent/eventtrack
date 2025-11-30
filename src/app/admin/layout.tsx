@@ -1,10 +1,13 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { QrCode, Calendar, Users, BarChart3, Home, Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { QrCode, Calendar, Users, BarChart3, Home, Menu, X, LogOut } from 'lucide-react'
+import { toast } from 'sonner'
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: Home },
@@ -15,7 +18,40 @@ const navigation = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    checkAuth()
+  }, [])
+
+  async function checkAuth() {
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
+      router.push('/auth/login')
+      return
+    }
+    
+    setUser(session.user)
+    setLoading(false)
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    toast.success('Logged out successfully')
+    router.push('/auth/login')
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gold-500" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
@@ -91,15 +127,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <div className="pt-4 md:pt-6 border-t border-white/5">
-          <Link
-            href="/checkin"
-            onClick={() => setSidebarOpen(false)}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+        <div className="pt-4 md:pt-6 border-t border-white/5 space-y-2">
+          {user && (
+            <div className="px-4 py-2 text-xs text-gray-500 truncate">
+              {user.email}
+            </div>
+          )}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
           >
-            <QrCode className="w-5 h-5" />
-            Scanner Mode
-          </Link>
+            <LogOut className="w-5 h-5" />
+            Logout
+          </button>
         </div>
       </aside>
 
