@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { QrCode, Send, Users, CheckCircle2, Sparkles, Calendar, Shield, Zap, Menu, X, LogIn, UserPlus } from 'lucide-react'
+import { QrCode, Send, Users, CheckCircle2, Sparkles, Calendar, Shield, Zap, Menu, X, LogIn, UserPlus, Crown } from 'lucide-react'
 import { useState } from 'react'
 
 export default function Home() {
@@ -125,7 +125,7 @@ export default function Home() {
               className="w-full sm:w-auto px-6 md:px-8 py-3 md:py-4 rounded-full bg-gradient-to-r from-gold-500 to-gold-600 text-midnight-950 font-semibold text-base md:text-lg hover:from-gold-400 hover:to-gold-500 transition-all shadow-xl shadow-gold-500/30 flex items-center justify-center gap-2"
             >
               <UserPlus className="w-4 h-4 md:w-5 md:h-5" />
-              Get Started Free
+              Start 3-Day Free Trial
             </Link>
             <Link 
               href="/auth/login"
@@ -266,15 +266,24 @@ export default function Home() {
             Ready to Get Started?
           </h2>
           <p className="text-gray-400 mb-8">
-            Create your first event and start sending beautiful invitations today
+            Start your 3-day free trial. No credit card required.
           </p>
-          <Link 
-            href="/auth/signup"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-gold-500 to-gold-600 text-midnight-950 font-semibold text-lg hover:from-gold-400 hover:to-gold-500 transition-all shadow-xl shadow-gold-500/30"
-          >
-            <UserPlus className="w-5 h-5" />
-            Sign Up Free
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link 
+              href="/auth/signup"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-gold-500 to-gold-600 text-midnight-950 font-semibold text-lg hover:from-gold-400 hover:to-gold-500 transition-all shadow-xl shadow-gold-500/30"
+            >
+              <UserPlus className="w-5 h-5" />
+              Start Free Trial
+            </Link>
+            <Link 
+              href="/pricing"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white/5 border border-white/10 text-white font-semibold hover:bg-white/10 transition-all"
+            >
+              <Crown className="w-5 h-5" />
+              View Pricing
+            </Link>
+          </div>
         </motion.div>
       </section>
 
