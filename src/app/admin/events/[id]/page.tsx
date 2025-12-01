@@ -9,11 +9,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { generateInvitationImage } from '@/components/InvitationCard'
+import { WhatsAppConnect } from '@/components/WhatsAppConnect'
 import { 
   ArrowLeft, Calendar, MapPin, Users, Send, QrCode, 
   CheckCircle2, Plus, Download, Upload, Trash2,
   Phone, Search, RefreshCw, Image, Share2, Shield, Link as LinkIcon,
-  FileText, Zap, X, Play, Pause, StopCircle, UserPlus
+  FileText, Zap, X, Play, Pause, StopCircle, UserPlus, MessageSquare
 } from 'lucide-react'
 import { formatDate, formatTime, generateQRCode, formatPhone, getAppUrl } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -39,7 +40,25 @@ export default function EventDetailPage() {
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkPaused, setBulkPaused] = useState(false)
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 })
+  const [whatsappConnected, setWhatsappConnected] = useState(false)
   const bulkSendRef = useRef<{ cancelled: boolean }>({ cancelled: false })
+
+  // Check WhatsApp connection status
+  useEffect(() => {
+    checkWhatsAppStatus()
+    const interval = setInterval(checkWhatsAppStatus, 10000)
+    return () => clearInterval(interval)
+  }, [])
+
+  async function checkWhatsAppStatus() {
+    try {
+      const res = await fetch('/api/whatsapp/status')
+      const data = await res.json()
+      setWhatsappConnected(data.isReady || false)
+    } catch (error) {
+      setWhatsappConnected(false)
+    }
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -335,52 +354,66 @@ Click the link above to see event details and download your QR code.`
       return
     }
 
+    // Check WhatsApp connection
+    if (!whatsappConnected) {
+      toast.error('Please connect WhatsApp first to send bulk messages', {
+        duration: 5000
+      })
+      return
+    }
+
     setBulkSending(true)
     setBulkPaused(false)
     setBulkProgress({ current: 0, total: targetGuests.length })
     bulkSendRef.current.cancelled = false
 
-    toast.info(`Starting bulk send to ${targetGuests.length} guests. WhatsApp will open for each guest. Mark as sent after each message.`, {
-      duration: 5000
+    toast.info(`Sending ${targetGuests.length} invitations via WhatsApp...`, {
+      duration: 3000
     })
 
-    for (let i = 0; i < targetGuests.length; i++) {
-      // Check if cancelled or paused
-      if (bulkSendRef.current.cancelled) {
-        toast.info('Bulk send cancelled')
-        break
-      }
-
-      // Wait while paused
-      while (bulkPaused && !bulkSendRef.current.cancelled) {
-        await new Promise(r => setTimeout(r, 500))
-      }
-
-      if (bulkSendRef.current.cancelled) break
-
-      const guest = targetGuests[i]
-      setBulkProgress({ current: i + 1, total: targetGuests.length })
+    try {
+      const guestIds = targetGuests.map(g => g.id)
       
-      // Open WhatsApp but don't auto-mark as sent
-      await sendWhatsAppInvite(guest, false)
-      
-      // Wait before next one to let user send the message
-      if (i < targetGuests.length - 1) {
-        await new Promise(r => setTimeout(r, 3000))
-      }
-    }
-
-    setBulkSending(false)
-    setBulkPaused(false)
-    setBulkProgress({ current: 0, total: 0 })
-    
-    if (!bulkSendRef.current.cancelled) {
-      toast.success(`Bulk send completed! Click "Mark Sent" for each message you sent.`, {
-        duration: 8000
+      const response = await fetch('/api/whatsapp/bulk-send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          eventId,
+          guestIds
+        })
       })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send messages')
+      }
+
+      setBulkProgress({ current: result.total, total: result.total })
+
+      if (result.sent > 0) {
+        toast.success(`Successfully sent ${result.sent} invitations!`, {
+          duration: 5000
+        })
+      }
+
+      if (result.failed > 0) {
+        toast.warning(`${result.failed} messages failed to send`, {
+          duration: 5000
+        })
+      }
+
+      loadData()
+    } catch (error: any) {
+      console.error('Bulk send error:', error)
+      toast.error(error.message || 'Failed to send bulk messages')
+    } finally {
+      setBulkSending(false)
+      setBulkPaused(false)
+      setBulkProgress({ current: 0, total: 0 })
     }
-    
-    loadData()
   }
 
   function pauseBulkSend() {
@@ -570,6 +603,9 @@ Click the link above to see event details and download your QR code.`
         ))}
       </div>
 
+      {/* WhatsApp Connection */}
+      <WhatsAppConnect />
+
       {/* Bulk Send Progress */}
       <AnimatePresence>
         {bulkSending && (
@@ -681,11 +717,21 @@ Click the link above to see event details and download your QR code.`
               </Button>
               <Button
                 onClick={() => startBulkSend()}
-                disabled={bulkSending || stats.invited === stats.total}
-                className="text-xs md:text-sm whitespace-nowrap bg-green-600 hover:bg-green-700"
+                disabled={bulkSending || stats.invited === stats.total || !whatsappConnected}
+                className="text-xs md:text-sm whitespace-nowrap bg-green-600 hover:bg-green-700 disabled:bg-gray-600"
+                title={!whatsappConnected ? 'Connect WhatsApp first' : ''}
               >
-                <Send className="w-3 h-3 md:w-4 md:h-4" />
-                Send All ({stats.total - stats.invited})
+                {whatsappConnected ? (
+                  <>
+                    <Send className="w-3 h-3 md:w-4 md:h-4" />
+                    Send All ({stats.total - stats.invited})
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="w-3 h-3 md:w-4 md:h-4" />
+                    Connect WhatsApp
+                  </>
+                )}
               </Button>
             </div>
           </div>
