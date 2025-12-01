@@ -12,6 +12,22 @@ class WhatsAppService extends EventEmitter {
   private Client: any = null
   private LocalAuth: any = null
 
+  private getSessionPath() {
+    // Check for custom path from environment
+    if (process.env.WHATSAPP_SESSION_PATH) {
+      return process.env.WHATSAPP_SESSION_PATH
+    }
+    
+    // Use /tmp in serverless environments (Netlify, Vercel, AWS Lambda)
+    // Note: /tmp is ephemeral - sessions won't persist between function invocations
+    if (process.env.NETLIFY || process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+      return '/tmp/.wwebjs_auth'
+    }
+    
+    // Use local path for development
+    return './.wwebjs_auth'
+  }
+
   private async loadWhatsAppWeb() {
     if (!this.Client) {
       const whatsappWeb = await import('whatsapp-web.js')
@@ -32,9 +48,23 @@ class WhatsAppService extends EventEmitter {
       // Load WhatsApp Web.js dynamically
       const { Client, LocalAuth } = await this.loadWhatsAppWeb()
       
+      const sessionPath = this.getSessionPath()
+      
+      // Ensure directory exists
+      try {
+        const fs = await import('fs')
+        if (!fs.existsSync(sessionPath)) {
+          fs.mkdirSync(sessionPath, { recursive: true })
+        }
+      } catch (e: any) {
+        // Directory might already exist or we're in read-only filesystem
+        console.warn('Could not create session directory:', e.message)
+        // Continue anyway - LocalAuth will try to create it
+      }
+      
       this.client = new Client({
         authStrategy: new LocalAuth({
-          dataPath: './.wwebjs_auth'
+          dataPath: sessionPath
         }),
         puppeteer: {
           headless: true,
@@ -75,8 +105,18 @@ class WhatsAppService extends EventEmitter {
       })
 
       await this.client.initialize()
-    } catch (error) {
+    } catch (error: any) {
       this.isInitializing = false
+      
+      // Provide helpful error messages
+      if (error.message?.includes('ENOENT') || error.message?.includes('mkdir')) {
+        throw new Error(
+          'Cannot create session directory. ' +
+          'In serverless environments, WhatsApp sessions may not persist. ' +
+          'Consider using a dedicated server or database-backed sessions.'
+        )
+      }
+      
       throw error
     }
   }

@@ -43,7 +43,17 @@ export function WhatsAppConnect() {
       const data = await res.json()
 
       if (data.error) {
-        toast.error(data.error)
+        if (data.serverless) {
+          toast.error('Serverless Limitation', {
+            description: 'WhatsApp bulk messaging requires a dedicated server. This feature works on localhost or dedicated hosting.',
+            duration: 10000
+          })
+        } else {
+          toast.error(data.error, {
+            description: data.details,
+            duration: 8000
+          })
+        }
         setIsConnecting(false)
         return
       }
