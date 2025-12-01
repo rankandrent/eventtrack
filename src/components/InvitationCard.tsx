@@ -105,8 +105,8 @@ export function InvitationCard({ guest, event, onImageReady }: InvitationCardPro
     const venue = event.venue.length > 35 ? event.venue.substring(0, 35) + '...' : event.venue
     ctx.fillText('📍  ' + venue, width / 2, detailsY + 70)
 
-    // Generate QR Code
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')
+    // Generate QR Code - Always use production URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://invite-event.netlify.app'
     const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`
     
     try {
@@ -264,8 +264,8 @@ export async function generateInvitationImage(guest: Guest, event: Event): Promi
     const venue = event.venue.length > 40 ? event.venue.substring(0, 40) + '...' : event.venue
     ctx.fillText('📍  ' + venue, width / 2, 345)
 
-    // Generate QR Code
-    const appUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+    // Generate QR Code - Always use production URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://invite-event.netlify.app'
     const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`
 
     QRCodeLib.toDataURL(checkInUrl, {

@@ -54,8 +54,8 @@ export default function InvitationDownloadPage() {
 
       setEvent(eventData)
 
-      // Generate QR code for display
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+      // Generate QR code for display - Always use production URL
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://invite-event.netlify.app'
       const checkInUrl = `${appUrl}/checkin?code=${code}`
       
       const qrUrl = await QRCodeLib.toDataURL(checkInUrl, {
