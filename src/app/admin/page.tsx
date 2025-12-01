@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { supabase, Event, Guest } from '@/lib/supabase'
+import { supabase, Event } from '@/lib/supabase'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Calendar, Users, CheckCircle2, Send, Plus, ArrowRight } from 'lucide-react'
-import { formatDate, formatTime } from '@/lib/utils'
+import { Calendar, Users, CheckCircle2, Send, Plus, ArrowRight, Clock, Sparkles } from 'lucide-react'
+import { formatTime } from '@/lib/utils'
 
 export default function AdminDashboard() {
   const [events, setEvents] = useState<Event[]>([])
@@ -18,46 +18,114 @@ export default function AdminDashboard() {
     invitationsSent: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [subscription, setSubscription] = useState<any>(null)
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
 
   useEffect(() => {
     loadDashboardData()
   }, [])
 
+  // Countdown timer
+  useEffect(() => {
+    if (!subscription?.trial_end || subscription?.plan !== 'trial') return
+
+    const timer = setInterval(() => {
+      const end = new Date(subscription.trial_end).getTime()
+      const now = Date.now()
+      const diff = end - now
+
+      if (diff <= 0) {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 })
+        return
+      }
+
+      setCountdown({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [subscription])
+
   async function loadDashboardData() {
     try {
-      // Load events
+      // Get current user
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.user) {
+        setLoading(false)
+        return
+      }
+
+      const userId = session.user.id
+
+      // Load subscription
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+      
+      setSubscription(subData)
+
+      // Load events (RLS will filter automatically, but let's be explicit)
       const { data: eventsData } = await supabase
         .from('events')
         .select('*')
+        .eq('user_id', userId)
         .order('event_date', { ascending: true })
         .limit(5)
 
       setEvents(eventsData || [])
 
-      // Load stats
+      // Load stats for user's events only
       const { count: eventCount } = await supabase
         .from('events')
         .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
 
-      const { count: guestCount } = await supabase
-        .from('guests')
-        .select('*', { count: 'exact', head: true })
+      // Get all event IDs for this user
+      const { data: userEvents } = await supabase
+        .from('events')
+        .select('id')
+        .eq('user_id', userId)
 
-      const { count: checkedInCount } = await supabase
-        .from('guests')
-        .select('*', { count: 'exact', head: true })
-        .eq('checked_in', true)
+      const eventIds = userEvents?.map(e => e.id) || []
 
-      const { count: sentCount } = await supabase
-        .from('guests')
-        .select('*', { count: 'exact', head: true })
-        .eq('invitation_sent', true)
+      let guestCount = 0
+      let checkedInCount = 0
+      let sentCount = 0
+
+      if (eventIds.length > 0) {
+        const { count: gc } = await supabase
+          .from('guests')
+          .select('*', { count: 'exact', head: true })
+          .in('event_id', eventIds)
+        guestCount = gc || 0
+
+        const { count: cc } = await supabase
+          .from('guests')
+          .select('*', { count: 'exact', head: true })
+          .in('event_id', eventIds)
+          .eq('checked_in', true)
+        checkedInCount = cc || 0
+
+        const { count: sc } = await supabase
+          .from('guests')
+          .select('*', { count: 'exact', head: true })
+          .in('event_id', eventIds)
+          .eq('invitation_sent', true)
+        sentCount = sc || 0
+      }
 
       setStats({
         totalEvents: eventCount || 0,
-        totalGuests: guestCount || 0,
-        checkedIn: checkedInCount || 0,
-        invitationsSent: sentCount || 0,
+        totalGuests: guestCount,
+        checkedIn: checkedInCount,
+        invitationsSent: sentCount,
       })
     } catch (error) {
       console.error('Error loading dashboard:', error)
@@ -75,6 +143,55 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 md:space-y-8">
+      {/* Trial Countdown Banner */}
+      {subscription?.plan === 'trial' && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card className="border-gold-500/30 bg-gradient-to-r from-gold-500/10 to-gold-600/10">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gold-500/20 flex items-center justify-center">
+                    <Sparkles className="w-6 h-6 text-gold-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Free Trial</h3>
+                    <p className="text-sm text-gray-400">Time remaining before trial ends</p>
+                  </div>
+                </div>
+                
+                {/* Countdown Timer */}
+                <div className="flex items-center gap-2 md:gap-4">
+                  {[
+                    { value: countdown.days, label: 'Days' },
+                    { value: countdown.hours, label: 'Hours' },
+                    { value: countdown.minutes, label: 'Min' },
+                    { value: countdown.seconds, label: 'Sec' },
+                  ].map((item, i) => (
+                    <div key={item.label} className="text-center">
+                      <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-midnight-950 border border-gold-500/30 flex items-center justify-center">
+                        <span className="text-lg md:text-2xl font-bold text-gold-400 font-mono">
+                          {String(item.value).padStart(2, '0')}
+                        </span>
+                      </div>
+                      <p className="text-[10px] md:text-xs text-gray-500 mt-1">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <Link href="/pricing">
+                  <Button size="sm" className="whitespace-nowrap">
+                    Upgrade Now
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -118,7 +235,7 @@ export default function AdminDashboard() {
       {/* Recent Events */}
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <CardTitle className="text-lg md:text-xl">Upcoming Events</CardTitle>
+          <CardTitle className="text-lg md:text-xl">Your Upcoming Events</CardTitle>
           <Link href="/admin/events">
             <Button variant="ghost" size="sm">
               View All <ArrowRight className="w-4 h-4" />

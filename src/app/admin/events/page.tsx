@@ -6,13 +6,14 @@ import { motion } from 'framer-motion'
 import { supabase, Event } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Calendar, Users, MapPin, Plus, MoreVertical, Trash2, Edit2 } from 'lucide-react'
-import { formatDate, formatTime } from '@/lib/utils'
+import { Calendar, Users, MapPin, Plus, Trash2 } from 'lucide-react'
+import { formatTime } from '@/lib/utils'
 import { toast } from 'sonner'
 
 export default function EventsPage() {
   const [events, setEvents] = useState<(Event & { guest_count?: number })[]>([])
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     loadEvents()
@@ -20,9 +21,21 @@ export default function EventsPage() {
 
   async function loadEvents() {
     try {
+      // Get current user
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.user) {
+        setLoading(false)
+        return
+      }
+
+      setUserId(session.user.id)
+
+      // Load events for this user only
       const { data: eventsData, error } = await supabase
         .from('events')
         .select('*')
+        .eq('user_id', session.user.id)
         .order('event_date', { ascending: false })
 
       if (error) throw error
@@ -53,6 +66,13 @@ export default function EventsPage() {
     }
 
     try {
+      // First delete all guests for this event
+      await supabase
+        .from('guests')
+        .delete()
+        .eq('event_id', id)
+
+      // Then delete the event
       const { error } = await supabase
         .from('events')
         .delete()
@@ -73,7 +93,7 @@ export default function EventsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-white">Events</h1>
+          <h1 className="text-3xl font-display font-bold text-white">My Events</h1>
           <p className="text-gray-400 mt-1">Manage all your events and their guests</p>
         </div>
         <Link href="/admin/events/new">
@@ -179,4 +199,3 @@ export default function EventsPage() {
     </div>
   )
 }
-
