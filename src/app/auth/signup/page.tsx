@@ -41,13 +41,16 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://invite-event.netlify.app'
+      
       const { data, error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
         options: {
           data: {
             name: form.name,
-          }
+          },
+          emailRedirectTo: `${appUrl}/auth/callback`
         }
       })
 
