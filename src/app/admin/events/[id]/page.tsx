@@ -354,13 +354,8 @@ Click the link above to see event details and download your QR code.`
       return
     }
 
-    // Check WhatsApp connection
-    if (!whatsappConnected) {
-      toast.error('Please connect WhatsApp first to send bulk messages', {
-        duration: 5000
-      })
-      return
-    }
+    // Note: Backend will use WhatsApp Business API if credentials are set,
+    // otherwise will use whatsapp-web.js (requires connection)
 
     setBulkSending(true)
     setBulkPaused(false)
@@ -717,21 +712,12 @@ Click the link above to see event details and download your QR code.`
               </Button>
               <Button
                 onClick={() => startBulkSend()}
-                disabled={bulkSending || stats.invited === stats.total || !whatsappConnected}
+                disabled={bulkSending || stats.invited === stats.total}
                 className="text-xs md:text-sm whitespace-nowrap bg-green-600 hover:bg-green-700 disabled:bg-gray-600"
-                title={!whatsappConnected ? 'Connect WhatsApp first' : ''}
+                title={stats.invited === stats.total ? 'All invitations sent' : 'Send all invitations'}
               >
-                {whatsappConnected ? (
-                  <>
-                    <Send className="w-3 h-3 md:w-4 md:h-4" />
-                    Send All ({stats.total - stats.invited})
-                  </>
-                ) : (
-                  <>
-                    <MessageSquare className="w-3 h-3 md:w-4 md:h-4" />
-                    Connect WhatsApp
-                  </>
-                )}
+                <Send className="w-3 h-3 md:w-4 md:h-4" />
+                Send All ({stats.total - stats.invited})
               </Button>
             </div>
           </div>
