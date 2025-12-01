@@ -32,39 +32,66 @@ export async function POST(request: NextRequest) {
     const accessToken = process.env.WHATSAPP_ACCESS_TOKEN
 
     if (whatsappApiUrl && phoneNumberId && accessToken && accessToken !== 'your_access_token') {
-      // Send via WhatsApp Business API
-      const response = await fetch(`${whatsappApiUrl}/${phoneNumberId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: guest.phone,
-          type: 'template',
-          template: {
-            name: 'event_invitation',
-            language: { code: 'en' },
-            components: [
-              {
-                type: 'body',
-                parameters: [
-                  { type: 'text', text: guest.name },
-                  { type: 'text', text: event.name },
-                  { type: 'text', text: new Date(event.event_date).toLocaleDateString() },
-                  { type: 'text', text: new Date(event.event_date).toLocaleTimeString() },
-                  { type: 'text', text: event.venue },
-                  { type: 'text', text: checkInUrl },
-                ],
-              },
-            ],
+      // Prepare message content
+      const messageText = `🎉 *You're Invited!*
+
+Dear ${guest.name},
+
+You are cordially invited to *${event.name}*
+
+📅 *Date:* ${new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+⏰ *Time:* ${new Date(event.event_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+📍 *Venue:* ${event.venue}
+${event.venue_address ? `\n📌 *Address:* ${event.venue_address}` : ''}
+
+Your personal check-in link:
+${checkInUrl}
+
+Please show your QR code at the entrance for quick check-in.
+
+${event.host_name ? `Looking forward to seeing you!\n\n- ${event.host_name}` : ''}`.trim()
+
+      // Format phone number (remove + and spaces)
+      const formattedPhone = guest.phone.replace(/[+\s]/g, '')
+
+      // Try sending via WhatsApp Business API (text message)
+      let response
+      try {
+        response = await fetch(`${whatsappApiUrl}/${phoneNumberId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
           },
-        }),
-      })
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: formattedPhone,
+            type: 'text',
+            text: {
+              body: messageText
+            }
+          }),
+        })
+      } catch (fetchError: any) {
+        console.error('WhatsApp API fetch error:', fetchError)
+        
+        // Log failed attempt
+        await supabase.from('whatsapp_logs').insert({
+          guest_id: guestId,
+          event_id: eventId,
+          message_type: 'invitation',
+          status: 'failed',
+          error_message: fetchError.message || 'Network error',
+        })
+
+        return NextResponse.json({ 
+          error: 'Failed to connect to WhatsApp API',
+          fallback: true 
+        }, { status: 500 })
+      }
 
       if (!response.ok) {
-        const error = await response.json()
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }))
         console.error('WhatsApp API error:', error)
         
         // Log failed attempt
@@ -76,7 +103,12 @@ export async function POST(request: NextRequest) {
           error_message: JSON.stringify(error),
         })
 
-        return NextResponse.json({ error: 'Failed to send WhatsApp message' }, { status: 500 })
+        // Return error but allow fallback to WhatsApp Web
+        return NextResponse.json({ 
+          error: 'WhatsApp API failed. Use WhatsApp Web instead.',
+          fallback: true,
+          details: error 
+        }, { status: 500 })
       }
 
       // Update guest status
