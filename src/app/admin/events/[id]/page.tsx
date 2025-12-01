@@ -224,7 +224,8 @@ export default function EventDetailPage() {
   async function sendWhatsAppInvite(guest: Guest, markAsSent: boolean = false) {
     if (!event) return
     
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+    // Always use production URL for invitation links
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://invite-event.netlify.app'
     const invitationUrl = `${appUrl}/invitation/${guest.qr_code}`
 
     const message = `🎉 *${event.name}*
@@ -289,7 +290,8 @@ Click the link above to see event details and download your QR code.`
         const blob = await response.blob()
         const file = new File([blob], `invitation-${guest.name}.png`, { type: 'image/png' })
         
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+        // Always use production URL
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://invite-event.netlify.app'
         const invitationUrl = `${appUrl}/invitation/${guest.qr_code}`
         
         const shareData = {
