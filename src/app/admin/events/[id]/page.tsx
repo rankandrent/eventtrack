@@ -211,8 +211,17 @@ export default function EventDetailPage() {
     }
   }
 
+  // Clean phone number for WhatsApp
+  function cleanPhoneForWhatsApp(phone: string): string {
+    // Remove all non-digits
+    let cleaned = phone.replace(/\D/g, '')
+    // Remove leading zeros
+    cleaned = cleaned.replace(/^0+/, '')
+    return cleaned
+  }
+
   // Send WhatsApp with invitation link
-  async function sendWhatsAppInvite(guest: Guest) {
+  async function sendWhatsAppInvite(guest: Guest, markAsSent: boolean = false) {
     if (!event) return
     
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
@@ -227,10 +236,29 @@ ${invitationUrl}
 
 Click the link above to see event details and download your QR code.`
 
-    const whatsappUrl = `https://wa.me/${guest.phone}?text=${encodeURIComponent(message)}`
+    // Clean phone number for WhatsApp
+    const cleanPhone = cleanPhoneForWhatsApp(guest.phone)
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
 
-    // Update invitation status
+    // Only mark as sent if explicitly requested
+    if (markAsSent) {
+      await markGuestAsInvited(guest)
+    } else {
+      // Show toast with button to mark as sent
+      toast('WhatsApp opened!', {
+        description: 'Click "Mark Sent" after you send the message',
+        action: {
+          label: 'Mark Sent',
+          onClick: () => markGuestAsInvited(guest)
+        },
+        duration: 10000,
+      })
+    }
+  }
+
+  // Mark guest as invited
+  async function markGuestAsInvited(guest: Guest) {
     await supabase.from('guests').update({
       invitation_sent: true,
       invitation_sent_at: new Date().toISOString()
@@ -244,6 +272,7 @@ Click the link above to see event details and download your QR code.`
       sent_at: new Date().toISOString()
     })
 
+    toast.success(`Marked ${guest.name} as invited`)
     loadData()
   }
 
@@ -272,13 +301,15 @@ Click the link above to see event details and download your QR code.`
         if (navigator.canShare(shareData)) {
           await navigator.share(shareData)
           
-          await supabase.from('guests').update({
-            invitation_sent: true,
-            invitation_sent_at: new Date().toISOString()
-          }).eq('id', guest.id)
-
-          toast.success('Invitation shared!')
-          loadData()
+          // Ask user to confirm if they sent it
+          toast('Shared successfully!', {
+            description: 'Did you send it?',
+            action: {
+              label: 'Yes, Mark Sent',
+              onClick: () => markGuestAsInvited(guest)
+            },
+            duration: 10000,
+          })
         }
       } else {
         downloadInvitationCard(guest)
@@ -307,7 +338,7 @@ Click the link above to see event details and download your QR code.`
     setBulkProgress({ current: 0, total: targetGuests.length })
     bulkSendRef.current.cancelled = false
 
-    toast.info(`Starting bulk send to ${targetGuests.length} guests. WhatsApp will open for each guest.`, {
+    toast.info(`Starting bulk send to ${targetGuests.length} guests. WhatsApp will open for each guest. Mark as sent after each message.`, {
       duration: 5000
     })
 
@@ -328,11 +359,12 @@ Click the link above to see event details and download your QR code.`
       const guest = targetGuests[i]
       setBulkProgress({ current: i + 1, total: targetGuests.length })
       
-      await sendWhatsAppInvite(guest)
+      // Open WhatsApp but don't auto-mark as sent
+      await sendWhatsAppInvite(guest, false)
       
       // Wait before next one to let user send the message
       if (i < targetGuests.length - 1) {
-        await new Promise(r => setTimeout(r, 2000))
+        await new Promise(r => setTimeout(r, 3000))
       }
     }
 
@@ -341,7 +373,9 @@ Click the link above to see event details and download your QR code.`
     setBulkProgress({ current: 0, total: 0 })
     
     if (!bulkSendRef.current.cancelled) {
-      toast.success(`Bulk send completed! ${targetGuests.length} invitations opened.`)
+      toast.success(`Bulk send completed! Click "Mark Sent" for each message you sent.`, {
+        duration: 8000
+      })
     }
     
     loadData()
@@ -833,6 +867,18 @@ John Doe, 14155551234`}
                       >
                         <LinkIcon className="w-4 h-4" />
                       </Button>
+                      
+                      {!guest.invitation_sent && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => markGuestAsInvited(guest)}
+                          className="p-2 text-gold-400 hover:text-gold-300"
+                          title="Mark as Sent"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </Button>
+                      )}
                       
                       <Button 
                         variant="ghost" 
