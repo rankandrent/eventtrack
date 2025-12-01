@@ -50,16 +50,16 @@ class WhatsAppService extends EventEmitter {
       
       const sessionPath = this.getSessionPath()
       
-      // Ensure directory exists
+      // Ensure directory exists (recursive will create all parent dirs)
       try {
         const fs = await import('fs')
         if (!fs.existsSync(sessionPath)) {
-          fs.mkdirSync(sessionPath, { recursive: true })
+          fs.mkdirSync(sessionPath, { recursive: true, mode: 0o755 })
         }
       } catch (e: any) {
-        // Directory might already exist or we're in read-only filesystem
-        console.warn('Could not create session directory:', e.message)
-        // Continue anyway - LocalAuth will try to create it
+        // Directory might already exist or creation failed
+        // LocalAuth will handle directory creation as fallback
+        console.log('Session directory setup:', e.message || 'Using default')
       }
       
       this.client = new Client({

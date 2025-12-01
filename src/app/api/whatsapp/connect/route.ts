@@ -8,22 +8,10 @@ export async function GET() {
   // Dynamic imports to avoid build-time issues
   const { whatsappService } = await import('@/lib/whatsapp-web')
   const QRCode = (await import('qrcode')).default
+  
   try {
-    // Check if we're in a serverless environment
-    const isServerless = process.env.NETLIFY || process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
-    
-    if (isServerless) {
-      return NextResponse.json(
-        { 
-          error: 'WhatsApp connection requires a persistent server environment. ' +
-                 'Serverless functions have limitations. Please use a dedicated server.',
-          serverless: true
-        },
-        { status: 503 }
-      )
-    }
-
-    // Initialize if not already
+    // Initialize WhatsApp service
+    // Note: In serverless (Netlify), sessions use /tmp which is ephemeral
     await whatsappService.initialize()
 
     // Wait for QR code (with timeout)
@@ -44,17 +32,17 @@ export async function GET() {
     console.error('WhatsApp connect error:', error)
     
     let errorMessage = error.message || 'Failed to generate QR code'
+    
     if (error.message?.includes('ENOENT') || error.message?.includes('mkdir')) {
-      errorMessage = 'Cannot create session directory. This feature requires a dedicated server, not serverless functions.'
+      errorMessage = 'Session storage error. Please try again or contact support.'
     }
     
     return NextResponse.json(
       { 
         error: errorMessage,
-        details: error.message
+        details: process.env.NETLIFY ? 'Running on Netlify - sessions may not persist' : error.message
       },
       { status: 500 }
     )
   }
 }
-
