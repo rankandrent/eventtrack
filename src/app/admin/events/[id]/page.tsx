@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -13,7 +13,7 @@ import {
   ArrowLeft, Calendar, MapPin, Users, Send, QrCode, 
   CheckCircle2, Plus, Download, Upload, Trash2,
   Phone, Search, RefreshCw, Image, Share2, Shield, Link as LinkIcon,
-  UserPlus, FileText, Zap, X, Play, Pause
+  FileText, Zap, X, Play, Pause, StopCircle, UserPlus
 } from 'lucide-react'
 import { formatDate, formatTime, generateQRCode, formatPhone } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -30,12 +30,16 @@ export default function EventDetailPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddGuest, setShowAddGuest] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
-  const [sendingInvites, setSendingInvites] = useState(false)
-  const [bulkSendProgress, setBulkSendProgress] = useState({ current: 0, total: 0, paused: false })
   const [generatingImage, setGeneratingImage] = useState<string | null>(null)
   const [newGuest, setNewGuest] = useState({ name: '', phone: '', email: '', plus_ones: '0' })
   const [bulkText, setBulkText] = useState('')
   const [autoSendOnAdd, setAutoSendOnAdd] = useState(false)
+  
+  // Bulk send state
+  const [bulkSending, setBulkSending] = useState(false)
+  const [bulkPaused, setBulkPaused] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 })
+  const bulkSendRef = useRef<{ cancelled: boolean }>({ cancelled: false })
 
   const loadData = useCallback(async () => {
     try {
@@ -119,6 +123,8 @@ export default function EventDetailPage() {
     let errors = 0
     const newGuestsList: Guest[] = []
 
+    toast.loading(`Adding ${lines.length} guests...`, { id: 'bulk-add' })
+
     for (const line of lines) {
       // Parse line - supports formats:
       // "Name, Phone" or "Name | Phone" or "Name\tPhone"
@@ -146,23 +152,26 @@ export default function EventDetailPage() {
             errors++
           }
         }
+      } else {
+        errors++
       }
     }
 
-    setBulkText('')
-    setShowBulkAdd(false)
-    loadData()
-
+    toast.dismiss('bulk-add')
+    
     if (added > 0) {
-      toast.success(`Added ${added} guests${errors > 0 ? ` (${errors} failed)` : ''}`)
-      
+      toast.success(`Added ${added} guests${errors > 0 ? `, ${errors} failed` : ''}`)
+      setBulkText('')
+      setShowBulkAdd(false)
+      loadData()
+
       // Auto send to all new guests if enabled
       if (autoSendOnAdd && newGuestsList.length > 0) {
         toast.info('Starting auto-send to new guests...')
-        await bulkSendInvites(newGuestsList)
+        startBulkSend(newGuestsList)
       }
     } else {
-      toast.error('No guests added. Check format: Name, Phone')
+      toast.error('No guests could be added. Check format: Name, Phone')
     }
   }
 
@@ -180,7 +189,7 @@ export default function EventDetailPage() {
     }
   }
 
-  // Download invitation card with QR code
+  // Download invitation card
   async function downloadInvitationCard(guest: Guest) {
     if (!event) return
     
@@ -203,7 +212,7 @@ export default function EventDetailPage() {
   }
 
   // Send WhatsApp with invitation link
-  async function sendWhatsAppInvite(guest: Guest, updateDb = true) {
+  async function sendWhatsAppInvite(guest: Guest) {
     if (!event) return
     
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
@@ -221,25 +230,24 @@ Click the link above to see event details and download your QR code.`
     const whatsappUrl = `https://wa.me/${guest.phone}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
 
-    if (updateDb) {
-      await supabase.from('guests').update({
-        invitation_sent: true,
-        invitation_sent_at: new Date().toISOString()
-      }).eq('id', guest.id)
+    // Update invitation status
+    await supabase.from('guests').update({
+      invitation_sent: true,
+      invitation_sent_at: new Date().toISOString()
+    }).eq('id', guest.id)
 
-      await supabase.from('whatsapp_logs').insert({
-        guest_id: guest.id,
-        event_id: eventId,
-        message_type: 'invitation',
-        status: 'sent',
-        sent_at: new Date().toISOString()
-      })
+    await supabase.from('whatsapp_logs').insert({
+      guest_id: guest.id,
+      event_id: eventId,
+      message_type: 'invitation',
+      status: 'sent',
+      sent_at: new Date().toISOString()
+    })
 
-      loadData()
-    }
+    loadData()
   }
 
-  // Share invitation with image (mobile)
+  // Share with image (mobile)
   async function shareWithImage(guest: Guest) {
     if (!event) return
     
@@ -285,46 +293,78 @@ Click the link above to see event details and download your QR code.`
     }
   }
 
-  // Bulk send invites with progress
-  async function bulkSendInvites(guestList?: Guest[]) {
-    const uninvited = guestList || guests.filter(g => !g.invitation_sent)
+  // Start bulk send to multiple guests
+  async function startBulkSend(guestList?: Guest[]) {
+    const targetGuests = guestList || guests.filter(g => !g.invitation_sent)
     
-    if (uninvited.length === 0) {
-      toast.info('All invitations have been sent')
+    if (targetGuests.length === 0) {
+      toast.info('All invitations have already been sent')
       return
     }
 
-    setSendingInvites(true)
-    setBulkSendProgress({ current: 0, total: uninvited.length, paused: false })
+    setBulkSending(true)
+    setBulkPaused(false)
+    setBulkProgress({ current: 0, total: targetGuests.length })
+    bulkSendRef.current.cancelled = false
 
-    for (let i = 0; i < uninvited.length; i++) {
-      // Check if paused
-      if (bulkSendProgress.paused) {
-        toast.info('Bulk send paused')
+    toast.info(`Starting bulk send to ${targetGuests.length} guests. WhatsApp will open for each guest.`, {
+      duration: 5000
+    })
+
+    for (let i = 0; i < targetGuests.length; i++) {
+      // Check if cancelled or paused
+      if (bulkSendRef.current.cancelled) {
+        toast.info('Bulk send cancelled')
         break
       }
 
-      const guest = uninvited[i]
-      setBulkSendProgress(prev => ({ ...prev, current: i + 1 }))
+      // Wait while paused
+      while (bulkPaused && !bulkSendRef.current.cancelled) {
+        await new Promise(r => setTimeout(r, 500))
+      }
+
+      if (bulkSendRef.current.cancelled) break
+
+      const guest = targetGuests[i]
+      setBulkProgress({ current: i + 1, total: targetGuests.length })
       
       await sendWhatsAppInvite(guest)
       
-      // Wait between sends to avoid rate limiting
-      if (i < uninvited.length - 1) {
+      // Wait before next one to let user send the message
+      if (i < targetGuests.length - 1) {
         await new Promise(r => setTimeout(r, 2000))
       }
     }
 
-    setSendingInvites(false)
-    setBulkSendProgress({ current: 0, total: 0, paused: false })
-    toast.success(`Sent ${uninvited.length} invitations!`)
+    setBulkSending(false)
+    setBulkPaused(false)
+    setBulkProgress({ current: 0, total: 0 })
+    
+    if (!bulkSendRef.current.cancelled) {
+      toast.success(`Bulk send completed! ${targetGuests.length} invitations opened.`)
+    }
+    
+    loadData()
   }
 
   function pauseBulkSend() {
-    setBulkSendProgress(prev => ({ ...prev, paused: true }))
+    setBulkPaused(true)
+    toast.info('Bulk send paused')
   }
 
-  // Copy scanner link for gate staff
+  function resumeBulkSend() {
+    setBulkPaused(false)
+    toast.info('Bulk send resumed')
+  }
+
+  function cancelBulkSend() {
+    bulkSendRef.current.cancelled = true
+    setBulkSending(false)
+    setBulkPaused(false)
+    toast.info('Bulk send cancelled')
+  }
+
+  // Copy scanner link
   function copyScannerLink() {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
     const scannerUrl = `${appUrl}/scanner/${eventId}`
@@ -332,11 +372,14 @@ Click the link above to see event details and download your QR code.`
     toast.success('Scanner link copied! Share with gate staff')
   }
 
+  // Excel upload
   async function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
     try {
+      toast.loading('Processing Excel file...', { id: 'excel' })
+      
       const data = await file.arrayBuffer()
       const workbook = XLSX.read(data)
       const worksheet = workbook.Sheets[workbook.SheetNames[0]]
@@ -352,7 +395,7 @@ Click the link above to see event details and download your QR code.`
 
         if (name && phone) {
           const qrCode = generateQRCode()
-          const { data, error } = await supabase.from('guests').insert({
+          const { data: guestData, error } = await supabase.from('guests').insert({
             event_id: eventId,
             name: String(name).trim(),
             phone: formatPhone(String(phone)),
@@ -360,29 +403,32 @@ Click the link above to see event details and download your QR code.`
             qr_code: qrCode,
           }).select().single()
           
-          if (!error && data) {
+          if (!error && guestData) {
             added++
-            newGuestsList.push(data)
+            newGuestsList.push(guestData)
           }
         }
       }
 
+      toast.dismiss('excel')
       toast.success(`Added ${added} guests from Excel`)
       loadData()
-      
+
       // Auto send if enabled
       if (autoSendOnAdd && newGuestsList.length > 0) {
         toast.info('Starting auto-send to new guests...')
-        await bulkSendInvites(newGuestsList)
+        setTimeout(() => startBulkSend(newGuestsList), 1000)
       }
     } catch (error) {
       console.error('Error processing Excel:', error)
+      toast.dismiss('excel')
       toast.error('Failed to process Excel file')
     }
     
     e.target.value = ''
   }
 
+  // Export guest list
   function exportGuestList() {
     const exportData = guests.map(g => ({
       Name: g.name,
@@ -458,14 +504,12 @@ Click the link above to see event details and download your QR code.`
         <div className="flex gap-2">
           <Button variant="secondary" onClick={copyScannerLink} className="text-xs md:text-sm">
             <Shield className="w-4 h-4" />
-            <span className="hidden sm:inline">Copy Scanner Link</span>
-            <span className="sm:hidden">Scanner</span>
+            <span className="hidden sm:inline">Scanner Link</span>
           </Button>
           <Link href={`/scanner/${event.id}`}>
             <Button className="text-xs md:text-sm">
               <QrCode className="w-4 h-4" />
               <span className="hidden sm:inline">Open Scanner</span>
-              <span className="sm:hidden">Scan</span>
             </Button>
           </Link>
         </div>
@@ -492,31 +536,47 @@ Click the link above to see event details and download your QR code.`
 
       {/* Bulk Send Progress */}
       <AnimatePresence>
-        {sendingInvites && (
+        {bulkSending && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
           >
-            <Card className="border-gold-500/30 bg-gold-500/5">
+            <Card className="border-gold-500/50 bg-gold-500/5">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Send className="w-5 h-5 text-gold-400 animate-pulse" />
-                    <span className="text-white font-medium">
-                      Sending invitations... {bulkSendProgress.current}/{bulkSendProgress.total}
-                    </span>
+                  <div className="flex items-center gap-3">
+                    <Zap className="w-5 h-5 text-gold-400 animate-pulse" />
+                    <div>
+                      <p className="text-white font-medium">Bulk Sending in Progress</p>
+                      <p className="text-sm text-gray-400">
+                        {bulkProgress.current} of {bulkProgress.total} • {bulkPaused ? 'Paused' : 'Sending...'}
+                      </p>
+                    </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={pauseBulkSend}>
-                    <Pause className="w-4 h-4" />
-                    Pause
-                  </Button>
+                  <div className="flex gap-2">
+                    {bulkPaused ? (
+                      <Button size="sm" onClick={resumeBulkSend}>
+                        <Play className="w-4 h-4" />
+                        Resume
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="secondary" onClick={pauseBulkSend}>
+                        <Pause className="w-4 h-4" />
+                        Pause
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={cancelBulkSend} className="text-red-400">
+                      <StopCircle className="w-4 h-4" />
+                      Stop
+                    </Button>
+                  </div>
                 </div>
                 <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                   <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(bulkSendProgress.current / bulkSendProgress.total) * 100}%` }}
                     className="h-full bg-gradient-to-r from-gold-500 to-gold-600"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
                   />
                 </div>
               </CardContent>
@@ -531,33 +591,33 @@ Click the link above to see event details and download your QR code.`
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-lg md:text-xl">Guest List</CardTitle>
-              <CardDescription className="text-xs md:text-sm">Add guests and send invitation links with QR codes</CardDescription>
+              <CardDescription className="text-xs md:text-sm">Add guests and send bulk invitations</CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {/* Auto-send toggle */}
-              <button
-                onClick={() => setAutoSendOnAdd(!autoSendOnAdd)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  autoSendOnAdd 
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                    : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                }`}
-              >
-                <Zap className="w-3 h-3" />
-                Auto-Send
-              </button>
+              {/* Auto Send Toggle */}
+              <label className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoSendOnAdd}
+                  onChange={(e) => setAutoSendOnAdd(e.target.checked)}
+                  className="w-4 h-4 accent-gold-500"
+                />
+                <span className="text-xs text-gray-300">Auto-send</span>
+              </label>
               
               <label className="cursor-pointer">
                 <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelUpload} />
                 <span className="inline-flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 text-xs md:text-sm font-medium rounded-lg md:rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all cursor-pointer">
                   <Upload className="w-3 h-3 md:w-4 md:h-4" />
-                  Excel
+                  <span className="hidden sm:inline">Excel</span>
                 </span>
               </label>
+              
               <Button variant="secondary" size="sm" onClick={() => setShowBulkAdd(true)} className="text-xs md:text-sm">
                 <FileText className="w-3 h-3 md:w-4 md:h-4" />
-                Bulk
+                <span className="hidden sm:inline">Bulk</span>
               </Button>
+              
               <Button onClick={() => setShowAddGuest(true)} size="sm" className="text-xs md:text-sm">
                 <Plus className="w-3 h-3 md:w-4 md:h-4" />
                 Add
@@ -566,7 +626,7 @@ Click the link above to see event details and download your QR code.`
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Search & Actions */}
+          {/* Search & Bulk Actions */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -580,13 +640,13 @@ Click the link above to see event details and download your QR code.`
             </div>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" onClick={exportGuestList} className="text-xs">
-                <Download className="w-4 h-4" />
+                <Download className="w-3 h-3 md:w-4 md:h-4" />
+                Export
               </Button>
               <Button
-                onClick={() => bulkSendInvites()}
-                loading={sendingInvites}
-                disabled={stats.invited === stats.total}
-                className="text-xs md:text-sm whitespace-nowrap flex-1 sm:flex-initial"
+                onClick={() => startBulkSend()}
+                disabled={bulkSending || stats.invited === stats.total}
+                className="text-xs md:text-sm whitespace-nowrap bg-green-600 hover:bg-green-700"
               >
                 <Send className="w-3 h-3 md:w-4 md:h-4" />
                 Send All ({stats.total - stats.invited})
@@ -601,50 +661,36 @@ Click the link above to see event details and download your QR code.`
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-4"
+                className="p-3 md:p-4 rounded-xl bg-white/5 border border-white/10 space-y-3"
               >
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-white flex items-center gap-2">
-                    <UserPlus className="w-4 h-4 text-gold-400" />
-                    Bulk Add Guests
-                  </h4>
+                  <div>
+                    <h4 className="font-medium text-white text-sm md:text-base">Bulk Add Guests</h4>
+                    <p className="text-xs text-gray-400">Enter one guest per line: Name, Phone</p>
+                  </div>
                   <button onClick={() => setShowBulkAdd(false)} className="text-gray-400 hover:text-white">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                
-                <div className="space-y-2">
-                  <p className="text-xs text-gray-400">
-                    Paste guests below. Format: <code className="bg-white/10 px-1 rounded">Name, Phone</code> (one per line)
-                  </p>
-                  <textarea
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-gold-500/50 focus:outline-none min-h-[150px] font-mono text-sm"
-                    placeholder={`Ahmed Khan, 923001234567
-Sara Ali, 14155551234
-Muhammad Umar, 923009876543`}
-                    value={bulkText}
-                    onChange={(e) => setBulkText(e.target.value)}
-                  />
-                  <p className="text-xs text-gray-500">
-                    Tip: Copy from Excel/Google Sheets and paste directly
-                  </p>
-                </div>
-
+                <textarea
+                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:border-gold-500/50 focus:outline-none min-h-[150px] font-mono text-sm"
+                  placeholder={`Ahmed Khan, 923001234567
+Sara Ali, 923009876543
+John Doe, 14155551234`}
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                />
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm text-gray-400">
-                    <input
-                      type="checkbox"
-                      checked={autoSendOnAdd}
-                      onChange={(e) => setAutoSendOnAdd(e.target.checked)}
-                      className="rounded border-white/20 bg-white/5 text-gold-500 focus:ring-gold-500"
-                    />
-                    <Zap className="w-4 h-4" />
-                    Auto-send invitations after adding
-                  </label>
-                  <Button onClick={handleBulkAdd}>
-                    <UserPlus className="w-4 h-4" />
-                    Add Guests
-                  </Button>
+                  <p className="text-xs text-gray-500">
+                    {bulkText.trim().split('\n').filter(l => l.trim()).length} guests to add
+                  </p>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setShowBulkAdd(false)}>Cancel</Button>
+                    <Button size="sm" onClick={handleBulkAdd}>
+                      <UserPlus className="w-4 h-4" />
+                      Add All
+                    </Button>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -693,21 +739,9 @@ Muhammad Umar, 923009876543`}
                     className="text-sm"
                   />
                 </div>
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm text-gray-400">
-                    <input
-                      type="checkbox"
-                      checked={autoSendOnAdd}
-                      onChange={(e) => setAutoSendOnAdd(e.target.checked)}
-                      className="rounded border-white/20 bg-white/5 text-gold-500 focus:ring-gold-500"
-                    />
-                    <Zap className="w-4 h-4" />
-                    Auto-send invitation
-                  </label>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setShowAddGuest(false)}>Cancel</Button>
-                    <Button size="sm" onClick={addGuest}>Add Guest</Button>
-                  </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setShowAddGuest(false)}>Cancel</Button>
+                  <Button size="sm" onClick={addGuest}>Add Guest</Button>
                 </div>
               </motion.div>
             )}
