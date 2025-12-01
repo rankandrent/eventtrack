@@ -6,7 +6,9 @@ import {
   QrCode, Send, Users, CheckCircle2, Sparkles, Calendar, Shield, Zap, 
   Menu, X, LogIn, UserPlus, Crown, MessageSquare, BarChart3, 
   Download, Upload, Clock, Star, TrendingUp, Globe, Smartphone,
-  ArrowRight, Check, DollarSign, Gift, Award, Target
+  ArrowRight, Check, DollarSign, Gift, Award, Target, Music, 
+  GraduationCap, Building, PartyPopper, Utensils, Camera, 
+  Heart, Briefcase, Mic, Video
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -430,12 +432,24 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {[
             { icon: Gift, title: 'Weddings', description: 'Elegant invitations with secure guest management' },
             { icon: Award, title: 'Corporate Events', description: 'Professional conferences, seminars, and meetings' },
             { icon: Target, title: 'Birthday Parties', description: 'Fun and easy check-in for celebrations' },
             { icon: TrendingUp, title: 'Conferences', description: 'Large-scale events with thousands of attendees' },
+            { icon: Music, title: 'Concerts', description: 'Music events and live performances with quick entry' },
+            { icon: GraduationCap, title: 'Graduations', description: 'Academic ceremonies and graduation events' },
+            { icon: Building, title: 'Seminars', description: 'Educational workshops and training sessions' },
+            { icon: PartyPopper, title: 'Anniversaries', description: 'Celebration events with family and friends' },
+            { icon: Utensils, title: 'Dinner Parties', description: 'Formal dinners and social gatherings' },
+            { icon: Camera, title: 'Photo Shoots', description: 'Organized photo sessions and studio events' },
+            { icon: Heart, title: 'Engagements', description: 'Romantic events and proposal parties' },
+            { icon: Briefcase, title: 'Networking Events', description: 'Business networking and meetups' },
+            { icon: Mic, title: 'Workshops', description: 'Interactive learning and skill-building sessions' },
+            { icon: Video, title: 'Product Launches', description: 'Company launches and product reveals' },
+            { icon: Calendar, title: 'Festivals', description: 'Cultural festivals and community events' },
+            { icon: Users, title: 'Meetups', description: 'Social gatherings and community meetups' },
           ].map((useCase, i) => (
             <motion.div
               key={useCase.title}
