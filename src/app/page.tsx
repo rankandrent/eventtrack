@@ -2,8 +2,66 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { QrCode, Send, Users, CheckCircle2, Sparkles, Calendar, Shield, Zap, Menu, X, LogIn, UserPlus, Crown } from 'lucide-react'
+import { 
+  QrCode, Send, Users, CheckCircle2, Sparkles, Calendar, Shield, Zap, 
+  Menu, X, LogIn, UserPlus, Crown, MessageSquare, BarChart3, 
+  Download, Upload, Clock, Star, TrendingUp, Globe, Smartphone,
+  ArrowRight, Check, DollarSign, Gift, Award, Target
+} from 'lucide-react'
 import { useState } from 'react'
+
+const pricingPlans = [
+  {
+    name: 'Basic',
+    price: 29,
+    period: 'month',
+    description: 'Perfect for small events',
+    features: [
+      'Up to 3 events/month',
+      'Up to 100 guests/event',
+      'WhatsApp invitations',
+      'QR code check-in',
+      'Basic analytics',
+      'Email support',
+    ],
+    popular: false,
+  },
+  {
+    name: 'Pro',
+    price: 79,
+    period: 'month',
+    description: 'For event professionals',
+    features: [
+      'Unlimited events',
+      'Up to 500 guests/event',
+      'WhatsApp invitations',
+      'QR code check-in',
+      'Advanced analytics',
+      'Priority support',
+      'Custom branding',
+      'Excel import/export',
+    ],
+    popular: true,
+  },
+  {
+    name: 'Enterprise',
+    price: 199,
+    period: 'month',
+    description: 'For large organizations',
+    features: [
+      'Unlimited events',
+      'Unlimited guests',
+      'WhatsApp invitations',
+      'QR code check-in',
+      'Advanced analytics',
+      '24/7 support',
+      'Custom branding',
+      'API access',
+      'Dedicated account manager',
+    ],
+    popular: false,
+  },
+]
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -28,6 +86,13 @@ export default function Home() {
           
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-3">
+            <Link 
+              href="/pricing"
+              className="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-all flex items-center gap-2"
+            >
+              <DollarSign className="w-4 h-4" />
+              Pricing
+            </Link>
             <Link 
               href="/auth/login" 
               className="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-all flex items-center gap-2"
@@ -61,6 +126,14 @@ export default function Home() {
             className="md:hidden absolute top-16 left-0 right-0 z-50 bg-midnight-950/95 backdrop-blur-lg border-b border-white/10 p-4"
           >
             <div className="flex flex-col gap-3">
+              <Link 
+                href="/pricing"
+                className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white font-medium text-center flex items-center justify-center gap-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <DollarSign className="w-4 h-4" />
+                Pricing
+              </Link>
               <Link 
                 href="/auth/login" 
                 className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white font-medium text-center flex items-center justify-center gap-2"
@@ -128,11 +201,11 @@ export default function Home() {
               Start 3-Day Free Trial
             </Link>
             <Link 
-              href="/auth/login"
+              href="/pricing"
               className="w-full sm:w-auto px-6 md:px-8 py-3 md:py-4 rounded-full bg-white/5 border border-white/10 text-white font-semibold text-base md:text-lg hover:bg-white/10 transition-all flex items-center justify-center gap-2"
             >
-              <LogIn className="w-4 h-4 md:w-5 md:h-5" />
-              Login to Dashboard
+              <Crown className="w-4 h-4 md:w-5 md:h-5" />
+              View Pricing
             </Link>
           </motion.div>
         </div>
@@ -189,6 +262,245 @@ export default function Home() {
               </div>
               <h3 className="text-base md:text-lg font-semibold text-white mb-1 md:mb-2">{feature.title}</h3>
               <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{feature.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Detailed Features */}
+      <section className="px-4 md:px-8 py-16 md:py-24 max-w-7xl mx-auto bg-white/5 rounded-3xl">
+        <div className="text-center mb-12 md:mb-16">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold gold-text mb-3 md:mb-4">
+            Powerful Features
+          </h2>
+          <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
+            Everything you need to manage events professionally
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+          {[
+            {
+              icon: MessageSquare,
+              title: 'Bulk WhatsApp Messaging',
+              description: 'Send invitations to hundreds of guests instantly via WhatsApp with personalized QR codes',
+            },
+            {
+              icon: Upload,
+              title: 'Excel Import',
+              description: 'Import guest lists from Excel files. Add hundreds of guests in seconds',
+            },
+            {
+              icon: Download,
+              title: 'Export Reports',
+              description: 'Download attendance reports, guest lists, and analytics in Excel format',
+            },
+            {
+              icon: BarChart3,
+              title: 'Advanced Analytics',
+              description: 'Track check-in rates, peak times, and event performance with detailed insights',
+            },
+            {
+              icon: Smartphone,
+              title: 'Mobile Scanner',
+              description: 'Dedicated scanner app for gate staff. Real-time check-in validation',
+            },
+            {
+              icon: Clock,
+              title: 'Real-Time Updates',
+              description: 'See attendance updates instantly. No refresh needed',
+            },
+            {
+              icon: Globe,
+              title: 'Global Support',
+              description: 'Works with any country phone numbers. No restrictions',
+            },
+            {
+              icon: Shield,
+              title: 'Secure & Private',
+              description: 'Each user sees only their events. Complete data isolation',
+            },
+            {
+              icon: Zap,
+              title: 'Fast & Reliable',
+              description: 'Lightning-fast check-ins. Works offline-capable scanner',
+            },
+          ].map((feature, i) => (
+            <motion.div
+              key={feature.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: i * 0.05 }}
+              viewport={{ once: true }}
+              className="p-4 md:p-6 rounded-xl bg-white/5 border border-white/10 hover:border-gold-500/30 transition-all"
+            >
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-gold-500/20 to-gold-600/20 rounded-xl flex items-center justify-center mb-4">
+                <feature.icon className="w-5 h-5 md:w-6 md:h-6 text-gold-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="px-4 md:px-8 py-16 md:py-24 max-w-7xl mx-auto">
+        <div className="text-center mb-12 md:mb-16">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gold-500/10 border border-gold-500/20 mb-4">
+            <Gift className="w-4 h-4 text-gold-400" />
+            <span className="text-gold-300 text-sm font-medium">3-Day Free Trial</span>
+          </div>
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold gold-text mb-3 md:mb-4">
+            Simple, Transparent Pricing
+          </h2>
+          <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
+            Start free, upgrade when you need more. No hidden fees.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+          {pricingPlans.map((plan, i) => (
+            <motion.div
+              key={plan.name}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: i * 0.1 }}
+              viewport={{ once: true }}
+            >
+              <div className={`glass-card rounded-2xl p-6 md:p-8 h-full flex flex-col ${
+                plan.popular ? 'border-gold-500/50 ring-2 ring-gold-500/20' : ''
+              }`}>
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="px-4 py-1 rounded-full bg-gradient-to-r from-gold-500 to-gold-600 text-midnight-950 text-xs font-bold">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold text-white mb-2">{plan.name}</h3>
+                  <p className="text-gray-400 text-sm mb-4">{plan.description}</p>
+                  
+                  <div className="mb-6">
+                    <span className="text-4xl md:text-5xl font-display font-bold gold-text">
+                      ${plan.price}
+                    </span>
+                    <span className="text-gray-400">/{plan.period}</span>
+                  </div>
+                </div>
+
+                <ul className="space-y-3 flex-1 mb-6">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-3 text-sm">
+                      <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-300">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Link href="/pricing">
+                  <button className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 text-midnight-950 font-semibold hover:from-gold-400 hover:to-gold-500 transition-all flex items-center justify-center gap-2">
+                    Get Started
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </Link>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="text-center mt-8">
+          <Link href="/pricing" className="text-gold-400 hover:text-gold-300 text-sm font-medium inline-flex items-center gap-2">
+            View all pricing details
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </section>
+
+      {/* Use Cases */}
+      <section className="px-4 md:px-8 py-16 md:py-24 max-w-7xl mx-auto">
+        <div className="text-center mb-12 md:mb-16">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold gold-text mb-3 md:mb-4">
+            Perfect For
+          </h2>
+          <p className="text-gray-400 max-w-xl mx-auto text-sm md:text-base">
+            Used by event organizers worldwide
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[
+            { icon: Gift, title: 'Weddings', description: 'Elegant invitations with secure guest management' },
+            { icon: Award, title: 'Corporate Events', description: 'Professional conferences, seminars, and meetings' },
+            { icon: Target, title: 'Birthday Parties', description: 'Fun and easy check-in for celebrations' },
+            { icon: TrendingUp, title: 'Conferences', description: 'Large-scale events with thousands of attendees' },
+          ].map((useCase, i) => (
+            <motion.div
+              key={useCase.title}
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: i * 0.1 }}
+              viewport={{ once: true }}
+              className="text-center p-6 rounded-xl bg-white/5 border border-white/10 hover:border-gold-500/30 transition-all"
+            >
+              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-gold-500/20 to-gold-600/20 rounded-2xl flex items-center justify-center">
+                <useCase.icon className="w-8 h-8 text-gold-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">{useCase.title}</h3>
+              <p className="text-gray-400 text-sm">{useCase.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Benefits Section */}
+      <section className="px-4 md:px-8 py-16 md:py-24 max-w-7xl mx-auto bg-white/5 rounded-3xl">
+        <div className="text-center mb-12 md:mb-16">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold gold-text mb-3 md:mb-4">
+            Why Choose InviteQR?
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+          {[
+            {
+              icon: Star,
+              title: 'Save Time',
+              description: 'Automate invitation sending. No more manual WhatsApp messages or paper invitations.',
+            },
+            {
+              icon: Shield,
+              title: 'Prevent Gate Crashers',
+              description: 'One-time QR codes ensure only invited guests can enter. No duplicate entries.',
+            },
+            {
+              icon: TrendingUp,
+              title: 'Track Everything',
+              description: 'Real-time attendance tracking. Know exactly who attended and when.',
+            },
+            {
+              icon: Zap,
+              title: 'Fast Check-In',
+              description: 'Scan and go. Guests check in in seconds, no waiting in long lines.',
+            },
+          ].map((benefit, i) => (
+            <motion.div
+              key={benefit.title}
+              initial={{ opacity: 0, x: i % 2 === 0 ? -20 : 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: i * 0.1 }}
+              viewport={{ once: true }}
+              className="flex gap-4"
+            >
+              <div className="w-12 h-12 flex-shrink-0 bg-gradient-to-br from-gold-500/20 to-gold-600/20 rounded-xl flex items-center justify-center">
+                <benefit.icon className="w-6 h-6 text-gold-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-white mb-2">{benefit.title}</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">{benefit.description}</p>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -289,16 +601,57 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="px-4 md:px-8 py-6 md:py-8 border-t border-white/5">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 md:w-8 md:h-8 bg-gradient-to-br from-gold-400 to-gold-600 rounded-lg flex items-center justify-center">
-              <QrCode className="w-3 h-3 md:w-4 md:h-4 text-midnight-950" />
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-br from-gold-400 to-gold-600 rounded-lg flex items-center justify-center">
+                  <QrCode className="w-4 h-4 text-midnight-950" />
+                </div>
+                <span className="font-display font-semibold gold-text">InviteQR</span>
+              </div>
+              <p className="text-gray-400 text-sm">
+                Professional event management with QR code invitations and real-time tracking.
+              </p>
             </div>
-            <span className="font-display font-medium gold-text text-sm md:text-base">InviteQR</span>
+            
+            <div>
+              <h4 className="text-white font-semibold mb-4">Product</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/pricing" className="text-gray-400 hover:text-gold-400 transition-colors">Pricing</Link></li>
+                <li><Link href="/auth/signup" className="text-gray-400 hover:text-gold-400 transition-colors">Sign Up</Link></li>
+                <li><Link href="/auth/login" className="text-gray-400 hover:text-gold-400 transition-colors">Login</Link></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="text-white font-semibold mb-4">Features</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li>WhatsApp Invitations</li>
+                <li>QR Code Check-in</li>
+                <li>Real-Time Tracking</li>
+                <li>Analytics Dashboard</li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="text-white font-semibold mb-4">Support</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="https://wa.me/923001234567" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gold-400 transition-colors">Contact WhatsApp</a></li>
+                <li><Link href="/pricing" className="text-gray-400 hover:text-gold-400 transition-colors">Pricing Plans</Link></li>
+              </ul>
+            </div>
           </div>
-          <p className="text-gray-500 text-xs md:text-sm text-center">
-            © {new Date().getFullYear()} Event QR Invitation System
-          </p>
+          
+          <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-gray-500 text-xs md:text-sm text-center">
+              © {new Date().getFullYear()} InviteQR. All rights reserved.
+            </p>
+            <div className="flex items-center gap-4 text-xs text-gray-500">
+              <Link href="/pricing" className="hover:text-gold-400 transition-colors">Privacy</Link>
+              <Link href="/pricing" className="hover:text-gold-400 transition-colors">Terms</Link>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
