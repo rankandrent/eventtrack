@@ -395,9 +395,21 @@ Click the link above to see event details and download your QR code.`
       }
 
       if (result.failed > 0) {
+        // Show detailed error for failed messages
+        const failedResults = result.results?.filter((r: any) => !r.success) || []
+        const errorDetails = failedResults
+          .map((r: any) => `${r.guest}: ${r.error || 'Unknown error'}`)
+          .join('\n')
+        
         toast.warning(`${result.failed} messages failed to send`, {
-          duration: 5000
+          description: failedResults.length <= 3 
+            ? errorDetails 
+            : `${failedResults.length} messages failed. Check logs for details.`,
+          duration: 10000
         })
+        
+        // Log to console for debugging
+        console.error('Failed messages:', failedResults)
       }
 
       loadData()

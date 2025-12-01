@@ -93,8 +93,27 @@ ${invitationUrl}
 
 Click the link above to see event details and download your QR code.`
 
-      // Format phone number (remove + and spaces)
-      const formattedPhone = guest.phone.replace(/[+\s]/g, '')
+      // Format phone number for WhatsApp Business API
+      // Required format: country code + number (no + sign, no spaces, no dashes)
+      let formattedPhone = guest.phone.replace(/[+\s\-()]/g, '')
+      
+      // If phone doesn't start with country code, assume it's missing
+      // Common issue: numbers like 03001234567 need country code
+      if (formattedPhone.length < 10) {
+        throw new Error(`Invalid phone number: ${guest.phone} (too short)`)
+      }
+      
+      // If starts with 0, remove it (common in Pakistan/India)
+      if (formattedPhone.startsWith('0')) {
+        formattedPhone = formattedPhone.substring(1)
+      }
+      
+      // If doesn't start with country code, try to detect
+      // Pakistan: 92, India: 91, US: 1, etc.
+      if (!formattedPhone.match(/^[1-9]\d{9,14}$/)) {
+        // Invalid format - log but continue
+        console.warn(`Phone number format issue: ${guest.phone} -> ${formattedPhone}`)
+      }
 
       const response = await fetch(`${whatsappApiUrl}/${phoneNumberId}/messages`, {
         method: 'POST',
@@ -130,17 +149,32 @@ Click the link above to see event details and download your QR code.`
           sent_at: new Date().toISOString()
         })
       } else {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-        results.push({ guest, success: false, error: JSON.stringify(error) })
+        const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }))
+        const errorMessage = errorData.error?.message || errorData.error?.error_user_msg || JSON.stringify(errorData)
+        const errorCode = errorData.error?.code || errorData.error?.error_subcode || 'UNKNOWN'
         
-        // Log failure
+        results.push({ 
+          guest, 
+          success: false, 
+          error: `${errorCode}: ${errorMessage}` 
+        })
+        
+        // Log failure with detailed error
         await supabase.from('whatsapp_logs').insert({
           guest_id: guest.id,
           event_id: eventId,
           message_type: 'invitation',
           status: 'failed',
-          error_message: JSON.stringify(error)
+          error_message: JSON.stringify({
+            code: errorCode,
+            message: errorMessage,
+            phone: formattedPhone,
+            original_phone: guest.phone,
+            full_error: errorData
+          })
         })
+        
+        console.error(`Failed to send to ${guest.name} (${formattedPhone}):`, errorData)
       }
 
       // Delay between messages to avoid rate limits (1 second delay)
@@ -148,16 +182,23 @@ Click the link above to see event details and download your QR code.`
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
     } catch (error: any) {
-      results.push({ guest, success: false, error: error.message })
+      const errorMessage = error.message || error.toString() || 'Unknown error'
+      results.push({ guest, success: false, error: errorMessage })
       
-      // Log failure
+      // Log failure with details
       await supabase.from('whatsapp_logs').insert({
         guest_id: guest.id,
         event_id: eventId,
         message_type: 'invitation',
         status: 'failed',
-        error_message: error.message || 'Unknown error'
+        error_message: JSON.stringify({
+          message: errorMessage,
+          phone: guest.phone,
+          error_type: error.name || 'Exception'
+        })
       })
+      
+      console.error(`Exception sending to ${guest.name} (${guest.phone}):`, error)
     }
   }
 
