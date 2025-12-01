@@ -143,52 +143,28 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 md:space-y-8">
-      {/* Trial Countdown Banner */}
+      {/* Trial Countdown Banner - Minimal */}
       {subscription?.plan === 'trial' && (
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card className="border-gold-500/30 bg-gradient-to-r from-gold-500/10 to-gold-600/10">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gold-500/20 flex items-center justify-center">
-                    <Sparkles className="w-6 h-6 text-gold-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Free Trial</h3>
-                    <p className="text-sm text-gray-400">Time remaining before trial ends</p>
-                  </div>
-                </div>
-                
-                {/* Countdown Timer */}
-                <div className="flex items-center gap-2 md:gap-4">
-                  {[
-                    { value: countdown.days, label: 'Days' },
-                    { value: countdown.hours, label: 'Hours' },
-                    { value: countdown.minutes, label: 'Min' },
-                    { value: countdown.seconds, label: 'Sec' },
-                  ].map((item, i) => (
-                    <div key={item.label} className="text-center">
-                      <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-midnight-950 border border-gold-500/30 flex items-center justify-center">
-                        <span className="text-lg md:text-2xl font-bold text-gold-400 font-mono">
-                          {String(item.value).padStart(2, '0')}
-                        </span>
-                      </div>
-                      <p className="text-[10px] md:text-xs text-gray-500 mt-1">{item.label}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <Link href="/pricing">
-                  <Button size="sm" className="whitespace-nowrap">
-                    Upgrade Now
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex items-center justify-between gap-3 px-4 py-2 rounded-xl bg-gold-500/10 border border-gold-500/20">
+            <div className="flex items-center gap-3">
+              <Clock className="w-4 h-4 text-gold-400" />
+              <span className="text-sm text-gray-300">
+                Trial ends in{' '}
+                <span className="font-mono font-bold text-gold-400">
+                  {countdown.days}d {countdown.hours}h {countdown.minutes}m
+                </span>
+              </span>
+            </div>
+            <Link href="/pricing">
+              <Button size="sm" variant="ghost" className="text-gold-400 hover:text-gold-300 text-xs px-3 py-1 h-auto">
+                Upgrade →
+              </Button>
+            </Link>
+          </div>
         </motion.div>
       )}
 
