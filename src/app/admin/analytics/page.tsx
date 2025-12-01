@@ -33,13 +33,44 @@ export default function AnalyticsPage() {
 
   async function loadAnalytics() {
     try {
-      const [eventsRes, guestsRes, logsRes] = await Promise.all([
-        supabase.from('events').select('*').order('event_date', { ascending: false }),
-        supabase.from('guests').select('*'),
-        supabase.from('checkin_logs').select('*').order('created_at', { ascending: false }).limit(50)
-      ])
+      // Current user
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) {
+        setEvents([])
+        setGuests([])
+        setCheckinLogs([])
+        return
+      }
 
-      setEvents(eventsRes.data || [])
+      // Load only this user's events
+      const { data: eventsRes, error: eventsError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('event_date', { ascending: false })
+
+      if (eventsError) throw eventsError
+
+      const eventIds = (eventsRes || []).map(e => e.id)
+
+      // Guests & logs only for these events
+      let guestsRes: { data: Guest[] | null } = { data: [] }
+      let logsRes: { data: CheckinLog[] | null } = { data: [] }
+
+      if (eventIds.length > 0) {
+        const [gRes, lRes] = await Promise.all([
+          supabase.from('guests').select('*').in('event_id', eventIds),
+          supabase.from('checkin_logs')
+            .select('*')
+            .in('event_id', eventIds)
+            .order('created_at', { ascending: false })
+            .limit(50),
+        ])
+        guestsRes = { data: gRes.data || [] }
+        logsRes = { data: lRes.data || [] }
+      }
+
+      setEvents(eventsRes || [])
       setGuests(guestsRes.data || [])
       setCheckinLogs(logsRes.data || [])
     } catch (error) {

@@ -27,19 +27,44 @@ export default function GuestsPage() {
 
   async function loadData() {
     try {
-      const [guestsRes, eventsRes] = await Promise.all([
-        supabase.from('guests').select('*').order('created_at', { ascending: false }),
-        supabase.from('events').select('*').order('event_date', { ascending: false })
-      ])
+      // Current user
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) {
+        setGuests([])
+        setEvents([])
+        return
+      }
 
-      const eventsMap = new Map((eventsRes.data || []).map(e => [e.id, e]))
+      // Load only this user's events
+      const { data: eventsRes, error: eventsError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('event_date', { ascending: false })
+
+      if (eventsError) throw eventsError
+
+      const eventIds = (eventsRes || []).map(e => e.id)
+
+      // If user has no events, no guests
+      let guestsRes: { data: Guest[] | null } = { data: [] }
+      if (eventIds.length > 0) {
+        const res = await supabase
+          .from('guests')
+          .select('*')
+          .in('event_id', eventIds)
+          .order('created_at', { ascending: false })
+        guestsRes = { data: res.data || [] }
+      }
+
+      const eventsMap = new Map((eventsRes || []).map(e => [e.id, e]))
       const guestsWithEvents = (guestsRes.data || []).map(g => ({
         ...g,
         event: eventsMap.get(g.event_id)
       }))
 
       setGuests(guestsWithEvents)
-      setEvents(eventsRes.data || [])
+      setEvents(eventsRes || [])
     } catch (error) {
       console.error('Error loading data:', error)
       toast.error('Failed to load data')
