@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { whatsappService } from '@/lib/whatsapp-web'
 import { supabase } from '@/lib/supabase'
 import { getAppUrl } from '@/lib/utils'
 
+// Mark as server-only and dynamic
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
+  // Dynamic import to avoid build-time issues
+  const { whatsappService } = await import('@/lib/whatsapp-web')
   try {
     // Check if WhatsApp is ready
     const status = whatsappService.getStatus()
@@ -62,9 +67,10 @@ ${appUrl}/invitation/{qr_code}
 
 Click the link above to see event details and download your QR code.`
 
-    // Send bulk messages
+    // Send bulk messages (pass full guest objects)
     const results = await whatsappService.sendBulk(
       guests.map(g => ({
+        id: g.id,
         phone: g.phone,
         name: g.name,
         qr_code: g.qr_code
@@ -75,7 +81,8 @@ Click the link above to see event details and download your QR code.`
     // Update sent status for successful sends
     const successfulIds = results
       .filter(r => r.success)
-      .map(r => r.guest.id)
+      .map(r => (r.guest as any).id)
+      .filter((id): id is string => id !== undefined)
 
     if (successfulIds.length > 0) {
       await supabase
@@ -116,10 +123,10 @@ Click the link above to see event details and download your QR code.`
       failed: results.filter(r => !r.success).length,
       total: results.length,
       results: results.map(r => ({
-        guest: r.guest.name,
+        guest: (r.guest as any).name || r.guest.name,
         phone: r.guest.phone,
         success: r.success,
-        error: r.error || null
+        error: (r as any).error || null
       }))
     })
   } catch (error: any) {

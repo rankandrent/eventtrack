@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server'
-import { whatsappService } from '@/lib/whatsapp-web'
-import QRCode from 'qrcode'
+
+// Mark as server-only and dynamic
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  // Dynamic imports to avoid build-time issues
+  const { whatsappService } = await import('@/lib/whatsapp-web')
+  const QRCode = (await import('qrcode')).default
   try {
     // Initialize if not already
     await whatsappService.initialize()

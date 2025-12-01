@@ -1,10 +1,25 @@
-import { Client, LocalAuth } from 'whatsapp-web.js'
 import { EventEmitter } from 'events'
 
+// This service only works server-side
+if (typeof window !== 'undefined') {
+  throw new Error('WhatsApp service can only run on server-side')
+}
+
 class WhatsAppService extends EventEmitter {
-  private client: Client | null = null
+  private client: any = null
   private isReady = false
   private isInitializing = false
+  private Client: any = null
+  private LocalAuth: any = null
+
+  private async loadWhatsAppWeb() {
+    if (!this.Client) {
+      const whatsappWeb = await import('whatsapp-web.js')
+      this.Client = whatsappWeb.Client
+      this.LocalAuth = whatsappWeb.LocalAuth
+    }
+    return { Client: this.Client, LocalAuth: this.LocalAuth }
+  }
 
   async initialize() {
     if (this.isInitializing || this.isReady) {
@@ -14,6 +29,9 @@ class WhatsAppService extends EventEmitter {
     this.isInitializing = true
 
     try {
+      // Load WhatsApp Web.js dynamically
+      const { Client, LocalAuth } = await this.loadWhatsAppWeb()
+      
       this.client = new Client({
         authStrategy: new LocalAuth({
           dataPath: './.wwebjs_auth'
@@ -32,7 +50,7 @@ class WhatsAppService extends EventEmitter {
         }
       })
 
-      this.client.on('qr', (qr) => {
+      this.client.on('qr', (qr: string) => {
         this.emit('qr', qr)
       })
 
@@ -46,12 +64,12 @@ class WhatsAppService extends EventEmitter {
         this.emit('authenticated')
       })
 
-      this.client.on('auth_failure', (msg) => {
+      this.client.on('auth_failure', (msg: string) => {
         this.isInitializing = false
         this.emit('auth_failure', msg)
       })
 
-      this.client.on('disconnected', (reason) => {
+      this.client.on('disconnected', (reason: string) => {
         this.isReady = false
         this.emit('disconnected', reason)
       })
@@ -91,7 +109,7 @@ class WhatsAppService extends EventEmitter {
   }
 
   async sendBulk(
-    guests: Array<{ phone: string; name: string; qr_code: string }>,
+    guests: Array<{ id?: string; phone: string; name: string; qr_code: string }>,
     messageTemplate: string,
     onProgress?: (current: number, total: number) => void
   ) {
@@ -159,4 +177,3 @@ class WhatsAppService extends EventEmitter {
 
 // Singleton instance
 export const whatsappService = new WhatsAppService()
-

@@ -262,7 +262,7 @@ export default function PricingPage() {
                   <Button 
                     onClick={() => handleSubscribe(plan.name)}
                     className="w-full mb-6"
-                    variant={plan.popular ? 'default' : 'secondary'}
+                    variant={plan.popular ? 'primary' : 'secondary'}
                     loading={selectedPlan === plan.name}
                   >
                     Get Started
