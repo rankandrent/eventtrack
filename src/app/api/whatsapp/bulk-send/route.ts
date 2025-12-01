@@ -150,8 +150,20 @@ Click the link above to see event details and download your QR code.`
         })
       } else {
         const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }))
-        const errorMessage = errorData.error?.message || errorData.error?.error_user_msg || JSON.stringify(errorData)
-        const errorCode = errorData.error?.code || errorData.error?.error_subcode || 'UNKNOWN'
+        const error = errorData.error || errorData
+        const errorCode = error.code || error.error_subcode || 'UNKNOWN'
+        let errorMessage = error.message || error.error_user_msg || JSON.stringify(errorData)
+        
+        // Provide helpful error messages for common issues
+        if (errorCode === 100 || errorMessage.includes('does not exist') || errorMessage.includes('missing permissions')) {
+          errorMessage = `Phone Number ID '${phoneNumberId}' is invalid or missing permissions. Please verify in Meta App Dashboard → WhatsApp → API Setup. Make sure the Phone Number ID matches your WhatsApp Business Account.`
+        } else if (errorCode === 190) {
+          errorMessage = `Access token is invalid or expired. Please generate a new token from Meta App Dashboard → WhatsApp → API Setup.`
+        } else if (errorCode === 131047) {
+          errorMessage = `Phone number ${formattedPhone} is not registered on WhatsApp.`
+        } else if (errorCode === 131026) {
+          errorMessage = `Message template not approved. Please use text messages or create approved templates.`
+        }
         
         results.push({ 
           guest, 
