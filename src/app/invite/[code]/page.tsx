@@ -10,7 +10,7 @@ import {
   QrCode, Calendar, Clock, MapPin, User, 
   CheckCircle2, Sparkles, ExternalLink
 } from 'lucide-react'
-import { formatDate, formatTime } from '@/lib/utils'
+import { formatDate, formatTime, getAppUrl } from '@/lib/utils'
 import QRCode from 'qrcode'
 
 export default function InvitePage() {
@@ -52,8 +52,8 @@ export default function InvitePage() {
 
       setEvent(eventData)
 
-      // Generate QR code
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+      // Generate QR code - Always use production URL
+      const appUrl = getAppUrl()
       const checkInUrl = `${appUrl}/checkin?code=${code}`
       
       const qrUrl = await QRCode.toDataURL(checkInUrl, {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Event, Guest } from '@/lib/supabase'
-import { formatDate, formatTime } from '@/lib/utils'
+import { formatDate, formatTime, getAppUrl } from '@/lib/utils'
 import { Calendar, Clock, MapPin, QrCode } from 'lucide-react'
 import QRCodeLib from 'qrcode'
 
@@ -106,7 +106,7 @@ export function InvitationCard({ guest, event, onImageReady }: InvitationCardPro
     ctx.fillText('📍  ' + venue, width / 2, detailsY + 70)
 
     // Generate QR Code - Always use production URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://invite-event.netlify.app'
+    const appUrl = getAppUrl()
     const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`
     
     try {
@@ -265,7 +265,7 @@ export async function generateInvitationImage(guest: Guest, event: Event): Promi
     ctx.fillText('📍  ' + venue, width / 2, 345)
 
     // Generate QR Code - Always use production URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://invite-event.netlify.app'
+    const appUrl = getAppUrl()
     const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`
 
     QRCodeLib.toDataURL(checkInUrl, {

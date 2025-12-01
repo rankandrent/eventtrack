@@ -22,7 +22,8 @@ export async function POST(request: NextRequest) {
 
     const guest = guestRes.data
     const event = eventRes.data
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // Always use production URL
+    const appUrl = 'https://invite-event.netlify.app'
     const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`
 
     // If WhatsApp Business API credentials are configured, use them

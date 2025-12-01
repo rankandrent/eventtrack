@@ -15,7 +15,7 @@ import {
   Phone, Search, RefreshCw, Image, Share2, Shield, Link as LinkIcon,
   FileText, Zap, X, Play, Pause, StopCircle, UserPlus
 } from 'lucide-react'
-import { formatDate, formatTime, generateQRCode, formatPhone } from '@/lib/utils'
+import { formatDate, formatTime, generateQRCode, formatPhone, getAppUrl } from '@/lib/utils'
 import { toast } from 'sonner'
 import * as XLSX from 'xlsx'
 
@@ -225,7 +225,7 @@ export default function EventDetailPage() {
     if (!event) return
     
     // Always use production URL for invitation links
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://invite-event.netlify.app'
+    const appUrl = getAppUrl()
     const invitationUrl = `${appUrl}/invitation/${guest.qr_code}`
 
     const message = `🎉 *${event.name}*
@@ -291,7 +291,7 @@ Click the link above to see event details and download your QR code.`
         const file = new File([blob], `invitation-${guest.name}.png`, { type: 'image/png' })
         
         // Always use production URL
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://invite-event.netlify.app'
+        const appUrl = getAppUrl()
         const invitationUrl = `${appUrl}/invitation/${guest.qr_code}`
         
         const shareData = {
@@ -402,7 +402,7 @@ Click the link above to see event details and download your QR code.`
 
   // Copy scanner link
   function copyScannerLink() {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+    const appUrl = getAppUrl()
     const scannerUrl = `${appUrl}/scanner/${eventId}`
     navigator.clipboard.writeText(scannerUrl)
     toast.success('Scanner link copied! Share with gate staff')

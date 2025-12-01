@@ -11,7 +11,7 @@ import {
   QrCode, Calendar, Clock, MapPin, User, 
   CheckCircle2, Sparkles, Download, Share2
 } from 'lucide-react'
-import { formatDate, formatTime } from '@/lib/utils'
+import { formatDate, formatTime, getAppUrl } from '@/lib/utils'
 import QRCodeLib from 'qrcode'
 
 export default function InvitationDownloadPage() {
@@ -55,7 +55,7 @@ export default function InvitationDownloadPage() {
       setEvent(eventData)
 
       // Generate QR code for display - Always use production URL
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://invite-event.netlify.app'
+      const appUrl = getAppUrl()
       const checkInUrl = `${appUrl}/checkin?code=${code}`
       
       const qrUrl = await QRCodeLib.toDataURL(checkInUrl, {

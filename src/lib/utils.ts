@@ -50,3 +50,9 @@ export function formatTime(date: string | Date): string {
 export function formatDateTime(date: string | Date): string {
   return `${formatDate(date)} at ${formatTime(date)}`
 }
+
+// Get production URL for invitations - always use production, never localhost
+export function getAppUrl(): string {
+  // Always return production URL for WhatsApp messages
+  return 'https://invite-event.netlify.app'
+}
