@@ -31,14 +31,30 @@ export default function ScannerPage() {
   const [recentCheckins, setRecentCheckins] = useState<Guest[]>([])
 
   const loadData = useCallback(async () => {
-    // Load event
+    // Get current user first
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session?.user) {
+      window.location.href = '/auth/login'
+      return
+    }
+
+    const userId = session.user.id
+
+    // Load event - verify ownership
     const { data: eventData } = await supabase
       .from('events')
       .select('*')
       .eq('id', eventId)
+      .eq('user_id', userId)  // CRITICAL: Only load if user owns this event
       .single()
     
-    if (eventData) setEvent(eventData)
+    if (!eventData) {
+      window.location.href = '/admin/events'
+      return
+    }
+    
+    setEvent(eventData)
 
     // Load stats
     const { count: total } = await supabase

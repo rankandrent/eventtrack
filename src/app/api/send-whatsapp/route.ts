@@ -10,18 +10,42 @@ export async function POST(request: NextRequest) {
   try {
     const { guestId, eventId } = await request.json()
 
-    // Get guest and event details
-    const [guestRes, eventRes] = await Promise.all([
-      supabase.from('guests').select('*').eq('id', guestId).single(),
-      supabase.from('events').select('*').eq('id', eventId).single()
-    ])
+    // Get current user from session
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (guestRes.error || eventRes.error) {
-      return NextResponse.json({ error: 'Guest or event not found' }, { status: 404 })
+    const userId = session.user.id
+
+    // Get event - verify ownership
+    const eventRes = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', eventId)
+      .eq('user_id', userId)  // CRITICAL: Only allow if user owns this event
+      .single()
+
+    if (eventRes.error || !eventRes.data) {
+      return NextResponse.json({ error: 'Event not found or access denied' }, { status: 404 })
+    }
+
+    const event = eventRes.data
+
+    // Get guest for this event
+    const guestRes = await supabase
+      .from('guests')
+      .select('*')
+      .eq('id', guestId)
+      .eq('event_id', eventId)  // Only guests for this event
+      .single()
+
+    if (guestRes.error || !guestRes.data) {
+      return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
     }
 
     const guest = guestRes.data
-    const event = eventRes.data
     // Always use production URL
     const appUrl = 'https://invite-event.netlify.app'
     const checkInUrl = `${appUrl}/checkin?code=${guest.qr_code}`

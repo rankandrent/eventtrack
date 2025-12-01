@@ -62,21 +62,48 @@ export default function EventDetailPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [eventRes, guestsRes] = await Promise.all([
-        supabase.from('events').select('*').eq('id', eventId).single(),
-        supabase.from('guests').select('*').eq('event_id', eventId).order('created_at', { ascending: false })
-      ])
+      // Get current user first
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.user) {
+        router.push('/auth/login')
+        return
+      }
 
-      if (eventRes.error) throw eventRes.error
+      const userId = session.user.id
+
+      // Load event - verify ownership
+      const eventRes = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .eq('user_id', userId)  // CRITICAL: Only load if user owns this event
+        .single()
+
+      if (eventRes.error || !eventRes.data) {
+        toast.error('Event not found or access denied')
+        router.push('/admin/events')
+        return
+      }
+
       setEvent(eventRes.data)
+
+      // Load guests for this event
+      const guestsRes = await supabase
+        .from('guests')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false })
+
       setGuests(guestsRes.data || [])
     } catch (error) {
       console.error('Error loading event:', error)
       toast.error('Failed to load event')
+      router.push('/admin/events')
     } finally {
       setLoading(false)
     }
-  }, [eventId])
+  }, [eventId, router])
 
   useEffect(() => {
     loadData()
@@ -395,21 +422,9 @@ Click the link above to see event details and download your QR code.`
       }
 
       if (result.failed > 0) {
-        // Show detailed error for failed messages
-        const failedResults = result.results?.filter((r: any) => !r.success) || []
-        const errorDetails = failedResults
-          .map((r: any) => `${r.guest}: ${r.error || 'Unknown error'}`)
-          .join('\n')
-        
         toast.warning(`${result.failed} messages failed to send`, {
-          description: failedResults.length <= 3 
-            ? errorDetails 
-            : `${failedResults.length} messages failed. Check logs for details.`,
-          duration: 10000
+          duration: 5000
         })
-        
-        // Log to console for debugging
-        console.error('Failed messages:', failedResults)
       }
 
       loadData()

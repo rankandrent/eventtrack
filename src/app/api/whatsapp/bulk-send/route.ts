@@ -17,29 +17,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get guests
+    // Get current user from auth header or session
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
+
+    // Get event - verify ownership
+    const { data: event, error: eventError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', eventId)
+      .eq('user_id', userId)  // CRITICAL: Only allow if user owns this event
+      .single()
+
+    if (eventError || !event) {
+      return NextResponse.json(
+        { error: 'Event not found or access denied' },
+        { status: 404 }
+      )
+    }
+
+    // Get guests for this event
     const { data: guests, error: guestsError } = await supabase
       .from('guests')
       .select('*')
+      .eq('event_id', eventId)  // Only guests for this event
       .in('id', guestIds)
 
     if (guestsError || !guests || guests.length === 0) {
       return NextResponse.json(
         { error: 'Guests not found' },
-        { status: 404 }
-      )
-    }
-
-    // Get event
-    const { data: event, error: eventError } = await supabase
-      .from('events')
-      .select('*')
-      .eq('id', eventId)
-      .single()
-
-    if (eventError || !event) {
-      return NextResponse.json(
-        { error: 'Event not found' },
         { status: 404 }
       )
     }
@@ -93,27 +107,8 @@ ${invitationUrl}
 
 Click the link above to see event details and download your QR code.`
 
-      // Format phone number for WhatsApp Business API
-      // Required format: country code + number (no + sign, no spaces, no dashes)
-      let formattedPhone = guest.phone.replace(/[+\s\-()]/g, '')
-      
-      // If phone doesn't start with country code, assume it's missing
-      // Common issue: numbers like 03001234567 need country code
-      if (formattedPhone.length < 10) {
-        throw new Error(`Invalid phone number: ${guest.phone} (too short)`)
-      }
-      
-      // If starts with 0, remove it (common in Pakistan/India)
-      if (formattedPhone.startsWith('0')) {
-        formattedPhone = formattedPhone.substring(1)
-      }
-      
-      // If doesn't start with country code, try to detect
-      // Pakistan: 92, India: 91, US: 1, etc.
-      if (!formattedPhone.match(/^[1-9]\d{9,14}$/)) {
-        // Invalid format - log but continue
-        console.warn(`Phone number format issue: ${guest.phone} -> ${formattedPhone}`)
-      }
+      // Format phone number (remove + and spaces)
+      const formattedPhone = guest.phone.replace(/[+\s]/g, '')
 
       const response = await fetch(`${whatsappApiUrl}/${phoneNumberId}/messages`, {
         method: 'POST',
@@ -149,44 +144,17 @@ Click the link above to see event details and download your QR code.`
           sent_at: new Date().toISOString()
         })
       } else {
-        const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }))
-        const error = errorData.error || errorData
-        const errorCode = error.code || error.error_subcode || 'UNKNOWN'
-        let errorMessage = error.message || error.error_user_msg || JSON.stringify(errorData)
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+        results.push({ guest, success: false, error: JSON.stringify(error) })
         
-        // Provide helpful error messages for common issues
-        if (errorCode === 100 || errorMessage.includes('does not exist') || errorMessage.includes('missing permissions')) {
-          errorMessage = `Phone Number ID '${phoneNumberId}' is invalid or missing permissions. Please verify in Meta App Dashboard → WhatsApp → API Setup. Make sure the Phone Number ID matches your WhatsApp Business Account.`
-        } else if (errorCode === 190) {
-          errorMessage = `Access token is invalid or expired. Please generate a new token from Meta App Dashboard → WhatsApp → API Setup.`
-        } else if (errorCode === 131047) {
-          errorMessage = `Phone number ${formattedPhone} is not registered on WhatsApp.`
-        } else if (errorCode === 131026) {
-          errorMessage = `Message template not approved. Please use text messages or create approved templates.`
-        }
-        
-        results.push({ 
-          guest, 
-          success: false, 
-          error: `${errorCode}: ${errorMessage}` 
-        })
-        
-        // Log failure with detailed error
+        // Log failure
         await supabase.from('whatsapp_logs').insert({
           guest_id: guest.id,
           event_id: eventId,
           message_type: 'invitation',
           status: 'failed',
-          error_message: JSON.stringify({
-            code: errorCode,
-            message: errorMessage,
-            phone: formattedPhone,
-            original_phone: guest.phone,
-            full_error: errorData
-          })
+          error_message: JSON.stringify(error)
         })
-        
-        console.error(`Failed to send to ${guest.name} (${formattedPhone}):`, errorData)
       }
 
       // Delay between messages to avoid rate limits (1 second delay)
@@ -194,23 +162,16 @@ Click the link above to see event details and download your QR code.`
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
     } catch (error: any) {
-      const errorMessage = error.message || error.toString() || 'Unknown error'
-      results.push({ guest, success: false, error: errorMessage })
+      results.push({ guest, success: false, error: error.message })
       
-      // Log failure with details
+      // Log failure
       await supabase.from('whatsapp_logs').insert({
         guest_id: guest.id,
         event_id: eventId,
         message_type: 'invitation',
         status: 'failed',
-        error_message: JSON.stringify({
-          message: errorMessage,
-          phone: guest.phone,
-          error_type: error.name || 'Exception'
-        })
+        error_message: error.message || 'Unknown error'
       })
-      
-      console.error(`Exception sending to ${guest.name} (${guest.phone}):`, error)
     }
   }
 
